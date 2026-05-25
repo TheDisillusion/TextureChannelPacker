@@ -43,7 +43,10 @@ struct ImageSize
 
 struct PackJob
 {
-    std::array<InputSlot, slot_count> slots{};
+    // Named "inputs" rather than "slots" because Qt's qobjectdefs.h #defines
+    // `slots` to nothing, which would silently corrupt this declaration in any
+    // translation unit that has already pulled in QObject machinery.
+    std::array<InputSlot, slot_count> inputs{};
 
     // channel_map[i] describes what feeds destination channel i (R=0, G=1, B=2, A=3).
     // Default values for unset destination channels: 0 for RGB, 1 for A.

@@ -2,7 +2,7 @@
 
 A focused desktop tool for game-dev and VFX artists: drag textures into R/G/B/A slots, route source channels, preview the packed result live, and export to PNG / TGA. DDS/BC compression and Unreal export presets land in later phases.
 
-> **Status:** Phase 1 — headless core library. The pack pipeline (load → route → resize → pack → export) works end-to-end via the unit tests; no GUI yet (Phase 2). See [docs/](docs/) once it lands, and the development plan in the project root.
+> **Status:** Phase 2 — UI shell. Qt 6 desktop window with drag-and-drop input slots, output settings, and async export. Live GPU preview lands in Phase 3.
 
 ---
 

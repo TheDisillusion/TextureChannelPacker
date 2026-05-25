@@ -47,7 +47,7 @@ std::optional<ImageSize> compute_target_size(const PackJob& job)
 
     std::optional<ImageSize> picked;
     for (int i = 0; i < slot_count; ++i) {
-        const InputSlot& s = job.slots[i];
+        const InputSlot& s = job.inputs[i];
         if (!s.populated()) {
             continue;
         }
@@ -98,7 +98,7 @@ PackResult pack(const PackJob& job)
     std::array<Image, slot_count> resized;
     std::array<bool, slot_count> resized_ok{};
     for (int i = 0; i < slot_count; ++i) {
-        const InputSlot& s = job.slots[i];
+        const InputSlot& s = job.inputs[i];
         if (!s.populated()) {
             continue;
         }

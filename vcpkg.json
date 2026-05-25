@@ -22,7 +22,7 @@
         {
           "name": "qtbase",
           "default-features": false,
-          "features": ["gui", "widgets", "opengl", "opengl-widgets"]
+          "features": ["gui", "widgets", "opengl"]
         },
         "qtimageformats"
       ]

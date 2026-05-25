@@ -28,9 +28,9 @@ TEST_CASE("compute_target_size picks the largest populated input by default",
 {
     tcp::PackJob job;
     job.resize_mode = tcp::ResizeMode::Largest;
-    job.slots[0].image = solid_rgba(64, 64, 1, 0, 0, 1);
-    job.slots[1].image = solid_rgba(128, 128, 0, 1, 0, 1);
-    job.slots[2].image = solid_rgba(32, 32, 0, 0, 1, 1);
+    job.inputs[0].image = solid_rgba(64, 64, 1, 0, 0, 1);
+    job.inputs[1].image = solid_rgba(128, 128, 0, 1, 0, 1);
+    job.inputs[2].image = solid_rgba(32, 32, 0, 0, 1, 1);
 
     const auto size = tcp::compute_target_size(job);
     REQUIRE(size.has_value());
@@ -42,8 +42,8 @@ TEST_CASE("compute_target_size honors Smallest and FirstPopulated",
           "[pack_job][resize_mode]")
 {
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(64, 64, 1, 0, 0, 1);
-    job.slots[1].image = solid_rgba(128, 128, 0, 1, 0, 1);
+    job.inputs[0].image = solid_rgba(64, 64, 1, 0, 0, 1);
+    job.inputs[1].image = solid_rgba(128, 128, 0, 1, 0, 1);
 
     job.resize_mode = tcp::ResizeMode::Smallest;
     auto small = tcp::compute_target_size(job);
@@ -84,10 +84,10 @@ TEST_CASE("pack assembles the four channel inputs into one packed image",
     // Slot 2: blue plate, source B goes into destination B.
     // Slot 3: white plate, source R goes into destination A.
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(16, 16, 1.0f, 0.0f, 0.0f, 1.0f);
-    job.slots[1].image = solid_rgba(16, 16, 0.0f, 1.0f, 0.0f, 1.0f);
-    job.slots[2].image = solid_rgba(16, 16, 0.0f, 0.0f, 1.0f, 1.0f);
-    job.slots[3].image = solid_rgba(16, 16, 1.0f, 1.0f, 1.0f, 1.0f);
+    job.inputs[0].image = solid_rgba(16, 16, 1.0f, 0.0f, 0.0f, 1.0f);
+    job.inputs[1].image = solid_rgba(16, 16, 0.0f, 1.0f, 0.0f, 1.0f);
+    job.inputs[2].image = solid_rgba(16, 16, 0.0f, 0.0f, 1.0f, 1.0f);
+    job.inputs[3].image = solid_rgba(16, 16, 1.0f, 1.0f, 1.0f, 1.0f);
     job.channel_map[0] = {0, tcp::SourceChannel::R};
     job.channel_map[1] = {1, tcp::SourceChannel::G};
     job.channel_map[2] = {2, tcp::SourceChannel::B};
@@ -115,7 +115,7 @@ TEST_CASE("pack fills unset destination channels with the appropriate default",
           "[pack_job][defaults]")
 {
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(8, 8, 0.5f, 0.5f, 0.5f, 1.0f);
+    job.inputs[0].image = solid_rgba(8, 8, 0.5f, 0.5f, 0.5f, 1.0f);
     job.channel_map[0] = {0, tcp::SourceChannel::R};
     // G, B, A intentionally unset.
 
@@ -134,8 +134,8 @@ TEST_CASE("pack resizes mismatched inputs to the largest target",
           "[pack_job][resize]")
 {
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(32, 32, 1.0f, 0.0f, 0.0f, 1.0f);
-    job.slots[1].image = solid_rgba(64, 64, 0.0f, 1.0f, 0.0f, 1.0f);
+    job.inputs[0].image = solid_rgba(32, 32, 1.0f, 0.0f, 0.0f, 1.0f);
+    job.inputs[1].image = solid_rgba(64, 64, 0.0f, 1.0f, 0.0f, 1.0f);
     job.channel_map[0] = {0, tcp::SourceChannel::R};
     job.channel_map[1] = {1, tcp::SourceChannel::G};
 
@@ -150,7 +150,7 @@ TEST_CASE("pack routes luminance correctly", "[pack_job][luminance]")
 {
     // Solid green: luminance ~= 0.7152.
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(4, 4, 0.0f, 1.0f, 0.0f, 1.0f);
+    job.inputs[0].image = solid_rgba(4, 4, 0.0f, 1.0f, 0.0f, 1.0f);
     job.channel_map[0] = {0, tcp::SourceChannel::Luminance};
 
     auto packed = tcp::pack(job);
@@ -164,9 +164,9 @@ TEST_CASE("pack -> save -> load preserves the packed image",
           "[pack_job][roundtrip]")
 {
     tcp::PackJob job;
-    job.slots[0].image = solid_rgba(8, 8, 0.25f, 0.0f, 0.0f, 1.0f);
-    job.slots[1].image = solid_rgba(8, 8, 0.0f, 0.5f, 0.0f, 1.0f);
-    job.slots[2].image = solid_rgba(8, 8, 0.0f, 0.0f, 0.75f, 1.0f);
+    job.inputs[0].image = solid_rgba(8, 8, 0.25f, 0.0f, 0.0f, 1.0f);
+    job.inputs[1].image = solid_rgba(8, 8, 0.0f, 0.5f, 0.0f, 1.0f);
+    job.inputs[2].image = solid_rgba(8, 8, 0.0f, 0.0f, 0.75f, 1.0f);
     job.channel_map[0] = {0, tcp::SourceChannel::R};
     job.channel_map[1] = {1, tcp::SourceChannel::G};
     job.channel_map[2] = {2, tcp::SourceChannel::B};

@@ -20,6 +20,10 @@ set(TCP_APP_SOURCES
     src/input_slot_widget.h
     src/output_panel.cpp
     src/output_panel.h
+    src/preview_widget.cpp
+    src/preview_widget.h
+    src/preview_panel.cpp
+    src/preview_panel.h
 )
 
 qt_add_executable(tcp_app
@@ -29,7 +33,10 @@ qt_add_executable(tcp_app
 qt_add_resources(tcp_app "tcp_resources"
     PREFIX "/tcp"
     BASE   ${CMAKE_CURRENT_SOURCE_DIR}/resources
-    FILES  resources/theme/dark.qss
+    FILES
+        resources/theme/dark.qss
+        resources/shaders/preview.vert
+        resources/shaders/preview.frag
 )
 
 set_target_properties(tcp_app PROPERTIES

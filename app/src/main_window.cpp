@@ -3,6 +3,7 @@
 #include "input_slot_widget.h"
 #include "job_controller.h"
 #include "output_panel.h"
+#include "preview_panel.h"
 
 #include "tcp/pack_job.h"
 #include "tcp/version.h"
@@ -22,36 +23,6 @@
 #include <QWidget>
 
 namespace tcp::app {
-
-namespace {
-
-QWidget* make_preview_placeholder(QWidget* parent)
-{
-    auto* frame = new QFrame(parent);
-    frame->setObjectName(QStringLiteral("PreviewPlaceholder"));
-    frame->setFrameShape(QFrame::StyledPanel);
-
-    auto* title = new QLabel(QStringLiteral("Preview"), frame);
-    title->setObjectName(QStringLiteral("PanelTitle"));
-
-    auto* body = new QLabel(
-        QStringLiteral("Live GPU preview lands in Phase 3.\n\n"
-                       "For now, drop textures into the slots on the left, configure the output\n"
-                       "on the right, and click Export."),
-        frame);
-    body->setAlignment(Qt::AlignCenter);
-    body->setWordWrap(true);
-
-    auto* layout = new QVBoxLayout(frame);
-    layout->setContentsMargins(16, 16, 16, 16);
-    layout->addWidget(title);
-    layout->addStretch(1);
-    layout->addWidget(body);
-    layout->addStretch(2);
-    return frame;
-}
-
-} // namespace
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
@@ -88,7 +59,7 @@ void MainWindow::build_central_widget_()
     }
     inputs_layout->addStretch(1);
 
-    auto* preview = make_preview_placeholder(this);
+    auto* preview = new PreviewPanel(controller_, this);
 
     output_panel_ = new OutputPanel(controller_, this);
 

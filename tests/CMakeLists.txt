@@ -16,6 +16,10 @@ set(TCP_TEST_SOURCES
     test_project.cpp
 )
 
+if(TCP_ENABLE_DDS)
+    list(APPEND TCP_TEST_SOURCES test_dds.cpp)
+endif()
+
 add_executable(tcp_tests ${TCP_TEST_SOURCES})
 
 target_link_libraries(tcp_tests PRIVATE

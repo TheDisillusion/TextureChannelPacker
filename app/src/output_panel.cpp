@@ -86,8 +86,17 @@ OutputPanel::OutputPanel(JobController* controller, QWidget* parent)
                 custom_width_->setValue(w);
                 custom_height_->setValue(h);
             });
+    connect(controller_, &JobController::bc_variant_changed, this,
+            [this](tcp::exporter::BcVariant v) {
+                const int idx = bc_variant_combo_->findData(static_cast<int>(v));
+                if (idx >= 0) {
+                    QSignalBlocker block(bc_variant_combo_);
+                    bc_variant_combo_->setCurrentIndex(idx);
+                }
+            });
 
     apply_resize_mode_visibility_();
+    on_format_changed_(format_combo_->currentIndex()); // initial visibility of BC widgets
 }
 
 void OutputPanel::build_ui_()
@@ -98,8 +107,23 @@ void OutputPanel::build_ui_()
     format_combo_ = new QComboBox(this);
     format_combo_->addItem(QStringLiteral("PNG"), static_cast<int>(exporter::Format::PNG));
     format_combo_->addItem(QStringLiteral("TGA"), static_cast<int>(exporter::Format::TGA));
+    format_combo_->addItem(QStringLiteral("DDS"), static_cast<int>(exporter::Format::DDS));
     connect(format_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &OutputPanel::on_format_changed_);
+
+    bc_variant_combo_ = new QComboBox(this);
+    bc_variant_combo_->addItem(QStringLiteral("BC7 (highest quality)"),
+                               static_cast<int>(exporter::BcVariant::BC7));
+    bc_variant_combo_->addItem(QStringLiteral("BC3 / DXT5 (color + alpha)"),
+                               static_cast<int>(exporter::BcVariant::BC3));
+    bc_variant_combo_->addItem(QStringLiteral("BC1 / DXT1 (opaque color)"),
+                               static_cast<int>(exporter::BcVariant::BC1));
+    bc_variant_combo_->addItem(QStringLiteral("BC5 (two-channel)"),
+                               static_cast<int>(exporter::BcVariant::BC5));
+    bc_variant_combo_->addItem(QStringLiteral("Uncompressed (RGBA8)"),
+                               static_cast<int>(exporter::BcVariant::Uncompressed));
+    connect(bc_variant_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
+            &OutputPanel::on_bc_variant_changed_);
 
     bit_depth_combo_ = new QComboBox(this);
     bit_depth_combo_->addItem(QStringLiteral("8-bit"), static_cast<int>(PixelFormat::U8));
@@ -157,6 +181,8 @@ void OutputPanel::build_ui_()
     form->setSpacing(8);
     form->addRow(QStringLiteral("Format"), format_combo_);
     form->addRow(QStringLiteral("Bit depth"), bit_depth_combo_);
+    bc_variant_label_ = new QLabel(QStringLiteral("BC variant"), this);
+    form->addRow(bc_variant_label_, bc_variant_combo_);
     form->addRow(QStringLiteral("Resize mode"), resize_mode_combo_);
     form->addRow(QStringLiteral("Filter"), filter_combo_);
 
@@ -194,13 +220,31 @@ void OutputPanel::on_format_changed_(int combo_index)
     }
     const auto fmt = static_cast<exporter::Format>(format_combo_->itemData(combo_index).toInt());
     controller_->set_output_format_kind(fmt);
-    // TGA only supports 8-bit; keep the UI in sync without nagging the user.
-    if (fmt == exporter::Format::TGA) {
+
+    // TGA only supports 8-bit; DDS is 8-bit-only in this revision too. Keep
+    // the UI in sync without nagging the user.
+    if (fmt == exporter::Format::TGA || fmt == exporter::Format::DDS) {
         bit_depth_combo_->setCurrentIndex(0);
         bit_depth_combo_->setEnabled(false);
     } else {
         bit_depth_combo_->setEnabled(true);
     }
+
+    const bool is_dds = (fmt == exporter::Format::DDS);
+    bc_variant_combo_->setVisible(is_dds);
+    if (bc_variant_label_) {
+        bc_variant_label_->setVisible(is_dds);
+    }
+}
+
+void OutputPanel::on_bc_variant_changed_(int combo_index)
+{
+    if (combo_index < 0) {
+        return;
+    }
+    const auto v = static_cast<exporter::BcVariant>(
+        bc_variant_combo_->itemData(combo_index).toInt());
+    controller_->set_bc_variant(v);
 }
 
 void OutputPanel::on_bit_depth_changed_(int combo_index)
@@ -253,11 +297,22 @@ void OutputPanel::on_populated_slots_changed_(int populated)
 void OutputPanel::on_export_clicked_()
 {
     const auto current_format = controller_->output_format_kind();
-    const QString ext = (current_format == exporter::Format::PNG) ? QStringLiteral("png")
-                                                                  : QStringLiteral("tga");
-    const QString filter = (current_format == exporter::Format::PNG)
-                               ? tr("PNG (*.png)")
-                               : tr("Targa (*.tga)");
+    QString ext;
+    QString filter;
+    switch (current_format) {
+        case exporter::Format::PNG:
+            ext = QStringLiteral("png");
+            filter = tr("PNG (*.png)");
+            break;
+        case exporter::Format::TGA:
+            ext = QStringLiteral("tga");
+            filter = tr("Targa (*.tga)");
+            break;
+        case exporter::Format::DDS:
+            ext = QStringLiteral("dds");
+            filter = tr("DDS (*.dds)");
+            break;
+    }
     const QString default_dir = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
     const QString suggested = default_dir + QStringLiteral("/packed.") + ext;
 

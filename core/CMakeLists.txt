@@ -21,6 +21,7 @@ set(TCP_CORE_PUBLIC_HEADERS
 
 set(TCP_CORE_SOURCES
     src/exporter.cpp
+    src/exporter_dds.cpp
     src/image.cpp
     src/loader_oiio.cpp
     src/pack_job.cpp
@@ -52,4 +53,12 @@ if(TCP_ENABLE_OIIO)
     find_package(OpenImageIO CONFIG REQUIRED)
     target_link_libraries(tcp_core PUBLIC OpenImageIO::OpenImageIO)
     target_compile_definitions(tcp_core PUBLIC TCP_HAVE_OIIO=1)
+endif()
+
+# DirectXTex link is opt-in until Phase 6. The DDS exporter file always
+# compiles — without TCP_HAVE_DDS it provides a stub that returns an error.
+if(TCP_ENABLE_DDS)
+    find_package(directxtex CONFIG REQUIRED)
+    target_link_libraries(tcp_core PRIVATE Microsoft::DirectXTex)
+    target_compile_definitions(tcp_core PRIVATE TCP_HAVE_DDS=1)
 endif()

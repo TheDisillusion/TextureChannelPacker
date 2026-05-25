@@ -186,6 +186,15 @@ void JobController::set_output_format_kind(exporter::Format fmt)
     emit output_format_kind_changed(fmt);
 }
 
+void JobController::set_bc_variant(exporter::BcVariant variant)
+{
+    if (bc_variant_ == variant) {
+        return;
+    }
+    bc_variant_ = variant;
+    emit bc_variant_changed(variant);
+}
+
 void JobController::reset()
 {
     apply_project(project::Project{});
@@ -249,9 +258,10 @@ void JobController::export_to(const QString& path, exporter::Format format)
     PackJob snapshot = job_;
     const QString captured_path = path;
     const exporter::Format captured_format = format;
+    const exporter::BcVariant captured_bc = bc_variant_;
 
     QThreadPool::globalInstance()->start(
-        [self, snapshot = std::move(snapshot), captured_path, captured_format] {
+        [self, snapshot = std::move(snapshot), captured_path, captured_format, captured_bc] {
             auto packed = pack(snapshot);
             QString error_text;
             if (!packed.ok()) {
@@ -259,6 +269,7 @@ void JobController::export_to(const QString& path, exporter::Format format)
             } else {
                 exporter::SaveOptions opts;
                 opts.format = captured_format;
+                opts.bc_variant = captured_bc;
                 auto save_res = exporter::save(*packed.image, qstring_to_path(captured_path), opts);
                 if (!save_res.ok) {
                     error_text = QString::fromStdString(save_res.error);

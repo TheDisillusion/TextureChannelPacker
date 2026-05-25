@@ -254,12 +254,22 @@ void MainWindow::on_export_()
         return;
     }
     const auto current_format = controller_->output_format_kind();
-    const QString ext = (current_format == tcp::exporter::Format::PNG)
-                            ? QStringLiteral("png")
-                            : QStringLiteral("tga");
-    const QString filter = (current_format == tcp::exporter::Format::PNG)
-                               ? tr("PNG (*.png)")
-                               : tr("Targa (*.tga)");
+    QString ext;
+    QString filter;
+    switch (current_format) {
+        case tcp::exporter::Format::PNG:
+            ext = QStringLiteral("png");
+            filter = tr("PNG (*.png)");
+            break;
+        case tcp::exporter::Format::TGA:
+            ext = QStringLiteral("tga");
+            filter = tr("Targa (*.tga)");
+            break;
+        case tcp::exporter::Format::DDS:
+            ext = QStringLiteral("dds");
+            filter = tr("DDS (*.dds)");
+            break;
+    }
     const QString default_dir = QStandardPaths::writableLocation(QStandardPaths::PicturesLocation);
     const QString suggested = default_dir + QStringLiteral("/packed.") + ext;
     const QString path = QFileDialog::getSaveFileName(this, tr("Export packed texture"),

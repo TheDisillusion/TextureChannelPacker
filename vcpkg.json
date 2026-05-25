@@ -17,6 +17,12 @@
         "cli11"
       ]
     },
+    "compression": {
+      "description": "DirectXTex for DDS write and BC1/3/5/7 encoding. Enabled from Phase 6 onward.",
+      "dependencies": [
+        "directxtex"
+      ]
+    },
     "imaging": {
       "description": "Pulls in OpenImageIO for the core image pipeline. Enabled from Phase 1 onward.",
       "dependencies": [

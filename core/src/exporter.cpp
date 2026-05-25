@@ -7,6 +7,13 @@
 #include <cctype>
 #include <string>
 
+// Forward-declared helper from exporter_dds.cpp. Linked in only when
+// TCP_ENABLE_DDS is on; otherwise we stub it to return an error.
+namespace tcp::exporter::detail {
+SaveResult save_dds(const Image& img, const std::filesystem::path& path,
+                    const SaveOptions& opts);
+} // namespace tcp::exporter::detail
+
 namespace tcp::exporter {
 
 namespace {
@@ -39,6 +46,20 @@ std::optional<Format> format_from_extension(const std::filesystem::path& path)
     const std::string ext = lower_extension(path);
     if (ext == "png") return Format::PNG;
     if (ext == "tga") return Format::TGA;
+    if (ext == "dds") return Format::DDS;
+    return std::nullopt;
+}
+
+std::optional<BcVariant> bc_variant_from_string(std::string_view s)
+{
+    std::string lower(s);
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (lower == "uncompressed" || lower == "none" || lower == "raw") return BcVariant::Uncompressed;
+    if (lower == "bc1" || lower == "dxt1") return BcVariant::BC1;
+    if (lower == "bc3" || lower == "dxt5") return BcVariant::BC3;
+    if (lower == "bc5") return BcVariant::BC5;
+    if (lower == "bc7") return BcVariant::BC7;
     return std::nullopt;
 }
 
@@ -66,6 +87,10 @@ SaveResult save(const Image& img, const std::filesystem::path& path, const SaveO
     if (fmt == Format::TGA && img.format() != PixelFormat::U8) {
         result.error = "TGA only supports 8-bit output; convert the image to U8 first";
         return result;
+    }
+
+    if (fmt == Format::DDS) {
+        return detail::save_dds(img, path, opts);
     }
 
     auto out = OIIO::ImageOutput::create(path.string());

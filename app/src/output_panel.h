@@ -21,6 +21,7 @@ public:
 private slots:
     void on_format_changed_(int combo_index);
     void on_bit_depth_changed_(int combo_index);
+    void on_bc_variant_changed_(int combo_index);
     void on_resize_mode_changed_(int combo_index);
     void on_filter_changed_(int combo_index);
     void on_custom_size_changed_();
@@ -40,6 +41,8 @@ private:
 
     QComboBox* format_combo_ = nullptr;
     QComboBox* bit_depth_combo_ = nullptr;
+    QComboBox* bc_variant_combo_ = nullptr;
+    class QLabel* bc_variant_label_ = nullptr;
     QComboBox* resize_mode_combo_ = nullptr;
     QComboBox* filter_combo_ = nullptr;
     QSpinBox* custom_width_ = nullptr;

@@ -2,7 +2,7 @@
 
 A focused desktop tool for game-dev and VFX artists: drag textures into R/G/B/A slots, route source channels, preview the packed result live, and export to PNG / TGA. DDS/BC compression and Unreal export presets land in later phases.
 
-> **Status:** v0.2.0 — adds the headless `tcp` CLI and built-in routing presets (Unreal ORM/MRA, Normal+Height, Diffuse+Specular Alpha). Pipeline-friendly automation now possible.
+> **Status:** v0.3.0 — adds DDS export with BC1/3/5/7 compression alongside PNG/TGA. The GUI grows a BC variant picker that appears only for DDS; the CLI grows a `--bc <variant>` flag. PNG/TGA exports work exactly as before.
 
 ---
 

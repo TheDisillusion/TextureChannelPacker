@@ -114,8 +114,14 @@ fs::path infer_output_extension(tcp::exporter::Format kind)
     return (kind == tcp::exporter::Format::PNG) ? fs::path("packed.png") : fs::path("packed.tga");
 }
 
+// Parse a --bc value into BcVariant. Returns nullopt on unknown input.
+std::optional<tcp::exporter::BcVariant> parse_bc(const std::string& s)
+{
+    return tcp::exporter::bc_variant_from_string(s);
+}
+
 int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>& output_override,
-                     bool quiet)
+                     std::optional<tcp::exporter::BcVariant> bc_override, bool quiet)
 {
     auto load_res = tcp::project::load(project_path);
     if (!load_res.ok()) {
@@ -141,7 +147,17 @@ int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>
                                   : project_path.parent_path() / infer_output_extension(project.output.format);
 
     tcp::exporter::SaveOptions save_opts;
-    save_opts.format = project.output.format;
+    // Output path extension takes precedence over the project's stored format —
+    // a user passing `-o out.dds` against a PNG-configured project clearly wants
+    // DDS, not a .dds file with PNG bytes inside it.
+    if (auto inferred = tcp::exporter::format_from_extension(out_path); inferred.has_value()) {
+        save_opts.format = *inferred;
+    } else {
+        save_opts.format = project.output.format;
+    }
+    if (bc_override) {
+        save_opts.bc_variant = *bc_override;
+    }
     auto save_res = tcp::exporter::save(*packed.image, out_path, save_opts);
     if (!save_res.ok) {
         std::cerr << "error: save failed: " << save_res.error << "\n";
@@ -156,7 +172,8 @@ int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>
 
 int cmd_pack_preset(const std::string& preset_id,
                     const std::vector<std::string>& slot_assignments,
-                    const std::optional<fs::path>& output_override, bool quiet)
+                    const std::optional<fs::path>& output_override,
+                    std::optional<tcp::exporter::BcVariant> bc_override, bool quiet)
 {
     auto p = tcp::preset::find_preset(preset_id);
     if (!p) {
@@ -202,7 +219,14 @@ int cmd_pack_preset(const std::string& preset_id,
                                   : fs::current_path() / infer_output_extension(p->output_kind);
 
     tcp::exporter::SaveOptions save_opts;
-    save_opts.format = p->output_kind;
+    if (auto inferred = tcp::exporter::format_from_extension(out_path); inferred.has_value()) {
+        save_opts.format = *inferred;
+    } else {
+        save_opts.format = p->output_kind;
+    }
+    if (bc_override) {
+        save_opts.bc_variant = *bc_override;
+    }
     auto save_res = tcp::exporter::save(*packed.image, out_path, save_opts);
     if (!save_res.ok) {
         std::cerr << "error: save failed: " << save_res.error << "\n";
@@ -243,6 +267,10 @@ int main(int argc, char** argv)
         ->take_all();
     pack->add_option("-o,--output", output_path_arg,
                      "Output texture path. Defaults to packed.png/.tga next to the project.");
+    std::string bc_arg;
+    pack->add_option("--bc", bc_arg,
+                     "BC variant for DDS output: uncompressed|bc1|bc3|bc5|bc7 (default bc7). "
+                     "Ignored for PNG/TGA outputs.");
 
     CLI11_PARSE(app, argc, argv);
 
@@ -255,6 +283,16 @@ int main(int argc, char** argv)
             output_override = std::filesystem::path(output_path_arg);
         }
 
+        std::optional<tcp::exporter::BcVariant> bc_override;
+        if (!bc_arg.empty()) {
+            bc_override = parse_bc(bc_arg);
+            if (!bc_override) {
+                std::cerr << "error: unknown --bc value '" << bc_arg
+                          << "'. Expected one of uncompressed|bc1|bc3|bc5|bc7.\n";
+                return exit_user_error;
+            }
+        }
+
         const bool have_project = !project_path_arg.empty();
         const bool have_preset = !preset_id_arg.empty();
         if (have_project == have_preset) {
@@ -263,9 +301,10 @@ int main(int argc, char** argv)
         }
 
         if (have_project) {
-            return cmd_pack_project(std::filesystem::path(project_path_arg), output_override, quiet);
+            return cmd_pack_project(std::filesystem::path(project_path_arg), output_override,
+                                    bc_override, quiet);
         }
-        return cmd_pack_preset(preset_id_arg, slot_assignments, output_override, quiet);
+        return cmd_pack_preset(preset_id_arg, slot_assignments, output_override, bc_override, quiet);
     }
 
     return exit_ok;

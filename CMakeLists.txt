@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(TextureChannelPacker
-    VERSION 0.2.0
+    VERSION 0.3.0
     DESCRIPTION "Native desktop tool for packing R/G/B/A channels of texture maps."
     LANGUAGES CXX
 )
@@ -36,6 +36,7 @@ option(TCP_BUILD_TESTS "Build the unit test suite"      ON)
 option(TCP_BUILD_APP   "Build the Qt desktop application (Phase 2+)" OFF)
 option(TCP_BUILD_CLI   "Build the headless CLI (Phase 5+)"           OFF)
 option(TCP_ENABLE_OIIO "Link OpenImageIO into the core (Phase 1+)"   OFF)
+option(TCP_ENABLE_DDS  "Link DirectXTex for DDS + BC encoding (Phase 6+)" OFF)
 
 # ------------------------------------------------------------------------------
 # Sub-targets
@@ -66,4 +67,5 @@ message(STATUS "  Build tests    : ${TCP_BUILD_TESTS}")
 message(STATUS "  Build app      : ${TCP_BUILD_APP}")
 message(STATUS "  Build CLI      : ${TCP_BUILD_CLI}")
 message(STATUS "  OpenImageIO    : ${TCP_ENABLE_OIIO}")
+message(STATUS "  DirectXTex     : ${TCP_ENABLE_DDS}")
 message(STATUS "")

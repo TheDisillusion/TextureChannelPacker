@@ -1,22 +1,25 @@
-name: CI
+name: Release
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (must already exist)"
+        required: true
+        type: string
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 env:
   VCPKG_BINARY_SOURCES: "clear;x-gha,readwrite"
 
 jobs:
   windows:
-    name: Windows / MSVC
+    name: Windows x64 release
     runs-on: windows-latest
 
     steps:
@@ -24,6 +27,15 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: recursive
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Resolve tag name
+        id: tag
+        shell: pwsh
+        run: |
+          $t = "${{ inputs.tag }}"
+          if (-not $t) { $t = "${{ github.ref_name }}" }
+          "name=$t" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Export GitHub Actions cache environment for vcpkg
         uses: actions/github-script@v8
@@ -46,28 +58,45 @@ jobs:
           if (-not $vs) { throw "No Visual Studio installation with C++ tools found." }
           $devShell = Join-Path $vs "Common7\Tools\Launch-VsDevShell.ps1"
           & $devShell -Arch amd64 -HostArch amd64 -SkipAutomaticLocation | Out-Null
-          # Persist the dev-env vars so subsequent steps inherit them.
           foreach ($name in 'PATH','INCLUDE','LIB','LIBPATH','VSCMD_VER','VSINSTALLDIR') {
             $value = [System.Environment]::GetEnvironmentVariable($name, 'Process')
             if ($value) { "$name=$value" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8 }
           }
 
-      - name: Configure (core + app + cli + tests, all features on)
+      - name: Configure
         shell: pwsh
         run: cmake --preset windows-msvc
-
-      - name: Build (Debug)
-        shell: pwsh
-        run: cmake --build --preset windows-msvc-debug
-
-      - name: Test (Debug)
-        shell: pwsh
-        run: ctest --preset windows-msvc-debug
 
       - name: Build (Release)
         shell: pwsh
         run: cmake --build --preset windows-msvc-release
 
-      - name: Test (Release)
+      - name: Sanity-test (Release)
         shell: pwsh
         run: ctest --preset windows-msvc-release
+
+      - name: Package archive
+        id: pkg
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.tag.outputs.name }}"
+          $dist = "TextureChannelPacker-$tag-win-x64"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Copy-Item -Recurse "build/windows-msvc/bin/Release/*" -Destination $dist
+          Copy-Item "LICENSE" -Destination $dist
+          Copy-Item "LICENSE-THIRD-PARTY.txt" -Destination $dist
+          Copy-Item "README.md" -Destination $dist
+          # Strip debug / link-info bloat that creeps in from the build tree.
+          Get-ChildItem $dist -Include *.pdb,*.ilk,*.exp,*.lib -Recurse | Remove-Item -Force
+          $zip = "$dist.zip"
+          Compress-Archive -Path "$dist/*" -DestinationPath $zip -Force
+          "archive=$zip" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: ${{ steps.pkg.outputs.archive }}

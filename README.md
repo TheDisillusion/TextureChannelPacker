@@ -1,70 +1,159 @@
 # Texture Channel Packer
 
-A focused desktop tool for game-dev and VFX artists: drag textures into R/G/B/A slots, route source channels, preview the packed result live, and export to PNG / TGA. DDS/BC compression and Unreal export presets land in later phases.
+A small native desktop tool for packing R/G/B/A channels of texture maps —
+AO, roughness, metallic, normal, height, whatever — into a single output
+without firing up Photoshop or Substance Designer for a thirty-second task.
 
-> **Status:** v0.3.0 — adds DDS export with BC1/3/5/7 compression alongside PNG/TGA. The GUI grows a BC variant picker that appears only for DDS; the CLI grows a `--bc <variant>` flag. PNG/TGA exports work exactly as before.
+Built for game and VFX artists who want one window, one drag, one click,
+one packed texture.
 
 ---
 
-## Goals
+## What it does
 
-- Native-feeling Windows desktop tool, fast cold-start, GPU-driven live preview.
-- Hard separation between a pure-C++ processing core and the Qt UI.
-- Architecture that survives the addition of batch mode, presets, CLI mode, and Unreal export without rewrites.
+Drop up to four textures into the four destination slots (R, G, B, A).
+Choose which channel of each input feeds the corresponding destination.
+The packed result renders live on the GPU as you change things. Hit
+Export when it looks right.
 
-## Tech stack
+Supported output formats:
 
-| Layer            | Choice                                             |
-| ---------------- | -------------------------------------------------- |
-| Language         | C++20                                              |
-| UI               | Qt 6 Widgets (dynamic-linked, LGPLv3 compliant)    |
-| Image I/O        | OpenImageIO 2.5+ (PNG, TGA, JPG, EXR, TIFF)        |
-| GPU preview      | `QOpenGLWidget` + GLSL 3.3 core                    |
-| Build            | CMake 3.24+, vcpkg manifest mode                   |
-| Tests            | Catch2 v3 (core), Qt Test (UI logic)               |
-| CI               | GitHub Actions, Windows runner                     |
+| Format | Bit depth | Notes |
+| --- | --- | --- |
+| PNG | 8 / 16-bit | Universal. Default. |
+| TGA | 8-bit | For pipelines that still want Targa. |
+| DDS | 8-bit | With BC1 / BC3 / BC5 / BC7 compression, or uncompressed RGBA8. |
 
-## Building
+Built-in routing presets cover the most common cases:
 
-### Prerequisites
+- **Unreal ORM** — AO → R, Roughness → G, Metallic → B
+- **Unreal MRA** — Metallic → R, Roughness → G, AO → B
+- **Normal + Height** — Normal XY → RG, Height → B
+- **Diffuse + Specular Alpha** — Diffuse → RGB, Specular luminance → A
 
-- **Visual Studio 2022 / 18 Community** with the "Desktop development with C++" workload (provides MSVC, CMake, Ninja).
-- **vcpkg** — see [Setting up vcpkg](#setting-up-vcpkg) below.
+## Quick start (GUI)
 
-### Setting up vcpkg
+1. Download the latest release zip, unpack it, run `TextureChannelPacker.exe`.
+2. Drag textures onto the R / G / B / A slots on the left.
+3. On the right panel pick the format (PNG / TGA / DDS), and for DDS pick
+   the BC variant.
+4. Click **Export…**.
 
-vcpkg is consumed as a git submodule in `external/vcpkg/`. After cloning:
+Useful keys when the preview is focused: `F` fit, `1` actual size,
+`R G B A` isolate one channel as greyscale, wheel zooms around the cursor.
+
+Project save/load is `Ctrl+S` / `Ctrl+O` — `.tcpproj` files store all
+the slot paths and settings so you can recreate a packing session.
+
+## Quick start (CLI)
+
+For build scripts, asset pipelines, or anything that doesn't want a
+window. The binary is called `tcp`.
+
+```
+tcp list-presets
+
+tcp pack --preset unreal-orm \
+         --slot 0=ao.png --slot 1=rough.png --slot 2=metal.png \
+         -o packed.png
+
+tcp pack --preset unreal-orm \
+         --slot 0=ao.png --slot 1=rough.png --slot 2=metal.png \
+         -o packed.dds --bc bc7
+
+tcp pack project.tcpproj -o packed.png
+```
+
+`tcp --help` for the full surface. Exit codes are `0` success, `2` bad
+user input, `3` I/O error, `4` runtime error — usable in build scripts.
+
+## Building from source
+
+Windows, Visual Studio 2022 (or newer) with the "Desktop development
+with C++" workload, run everything from a **Developer Command Prompt**
+so MSVC is on the path.
 
 ```pwsh
-git submodule update --init --recursive
+git clone --recurse-submodules https://github.com/TheDisillusion/TextureChannelPacker.git
+cd TextureChannelPacker
+
+# Bootstrap the vcpkg submodule (only the first time)
 .\external\vcpkg\bootstrap-vcpkg.bat -disableMetrics
-```
-
-Set `VCPKG_ROOT` for the current shell (or persistently for the user):
-
-```pwsh
 $env:VCPKG_ROOT = "$PWD\external\vcpkg"
-```
 
-### Configure & build
-
-```pwsh
-cmake --preset windows-msvc-debug
-cmake --build --preset windows-msvc-debug
-ctest --preset windows-msvc-debug --output-on-failure
-```
-
-Release builds:
-
-```pwsh
-cmake --preset windows-msvc-release
+# Configure + build
+cmake --preset windows-msvc
 cmake --build --preset windows-msvc-release
 ```
 
+The Release executable lands at
+`build\windows-msvc\bin\Release\TextureChannelPacker.exe`, the CLI at
+`build\windows-msvc\bin\Release\tcp.exe`, with all Qt and OpenImageIO
+DLLs and plugins deployed next to them.
+
+The first configure downloads and builds Qt 6, OpenImageIO, OpenColorIO,
+DirectXTex and friends through vcpkg — plan on roughly an hour, mostly
+unattended. Subsequent configures hit the cache and finish in seconds.
+
+Tests:
+
+```pwsh
+ctest --preset windows-msvc-release
+```
+
+There are 45 of them, covering the image pipeline, routing, resize, I/O
+round-trips, presets, project files and DDS / BC encoding.
+
+## Layout
+
+```
+core/        libtcp_core — pure C++, no Qt. Image, PackJob, exporters.
+app/         tcp_app — Qt 6 desktop application.
+cli/         tcp_cli — headless tcp(.exe).
+tests/       Catch2 unit tests against tcp::core.
+external/    vcpkg submodule.
+```
+
+The `core` library is the only thing that touches pixels. Both the GUI
+and the CLI consume it; if you want to embed the pipeline into your own
+engine or tool it's a single static library link.
+
+## Tech
+
+C++20 / CMake 3.24 / vcpkg manifest mode. Qt 6 Widgets for the UI,
+QOpenGLWidget plus GLSL 3.3 for the preview. OpenImageIO for PNG / TGA /
+JPG / EXR / TIFF read and write. DirectXTex for DDS and BC compression.
+nlohmann/json for the project file format. Catch2 for tests. CLI11 for
+the command line.
+
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT. Use it for personal projects, commercial work, client deliverables,
+or anything else. See [LICENSE](LICENSE).
 
-It uses Qt 6 under the LGPLv3 (dynamic-linked) — see [LICENSE-THIRD-PARTY.txt](LICENSE-THIRD-PARTY.txt) for the full third-party attribution and links to the Qt source. OpenImageIO and Catch2 are used under their respective permissive licenses.
+The Qt 6 framework is bundled under **LGPLv3** (dynamic-linked), which
+adds exactly one requirement to binary redistributions: ship
+[LICENSE-THIRD-PARTY.txt](LICENSE-THIRD-PARTY.txt) alongside the
+executable so users have the Qt notice. That's it — Qt source isn't
+required to be vendored because Qt is dynamically linked and the user
+can swap it out.
 
-You can use, modify, and redistribute this software (including commercially and for client work) under the terms of the MIT License. Binary redistributions must include the third-party attribution file so end users have the LGPL notice for Qt.
+Textures you produce with this tool carry no license attachment from the
+tool itself. They're yours.
+
+## Status and future
+
+Current release: **v0.3.0**. The pipeline is complete for typical PBR
+packing workflows: pack, preview, export PNG / TGA / DDS, save and
+reload sessions, automate from a script.
+
+Plausible directions if there's interest:
+
+- HDR / float DDS (currently 8-bit only)
+- macOS support (the code is portable; the preview widget would need a
+  QRhi swap because Apple deprecated OpenGL)
+- Batch mode with filename pattern matching
+- A drag-out from the export button straight into Unreal's content
+  browser
+
+PRs and feature requests are welcome.

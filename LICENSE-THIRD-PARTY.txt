@@ -1,10 +1,13 @@
 Texture Channel Packer — Third-Party Software Notices
 ======================================================
 
-This software incorporates components from the projects listed below. The
-original copyright notices and the license terms applicable to each component
-are reproduced or referenced in this file. Texture Channel Packer itself is
-distributed under the MIT License (see LICENSE).
+This software incorporates components from the projects listed below.
+Texture Channel Packer itself is distributed under the MIT License
+(see LICENSE).
+
+If you redistribute Texture Channel Packer in binary form, include this
+file alongside the executable. The only obligation it imposes on a
+downstream user is the Qt LGPLv3 notice (item 1).
 
 ------------------------------------------------------------------------------
 
@@ -14,26 +17,51 @@ distributed under the MIT License (see LICENSE).
    Qt is dynamically linked. End users may replace the Qt libraries with
    modified versions of their own.
 
-   Full text of the LGPLv3:
-       https://www.gnu.org/licenses/lgpl-3.0.html
-   Qt source code:
-       https://download.qt.io/official_releases/qt/
-   Qt licensing overview:
-       https://www.qt.io/licensing/
+   LGPLv3 full text:          https://www.gnu.org/licenses/lgpl-3.0.html
+   Qt source releases:        https://download.qt.io/official_releases/qt/
+   Qt licensing overview:     https://www.qt.io/licensing/
 
 ------------------------------------------------------------------------------
 
 2. OpenImageIO
    Copyright Contributors to the OpenImageIO project.
-   Used under the BSD 3-Clause license.
+   Used under the BSD 3-Clause License.
 
    Source and license:
        https://github.com/AcademySoftwareFoundation/OpenImageIO
 
 ------------------------------------------------------------------------------
 
-3. Catch2 (test framework, not redistributed in binaries)
-   Copyright Catch2 Authors.
+3. DirectXTex
+   Copyright (c) Microsoft Corporation.
+   Used under the MIT License.
+
+   Source and license:
+       https://github.com/microsoft/DirectXTex
+
+------------------------------------------------------------------------------
+
+4. nlohmann/json
+   Copyright (c) 2013-2025 Niels Lohmann.
+   Used under the MIT License.
+
+   Source and license:
+       https://github.com/nlohmann/json
+
+------------------------------------------------------------------------------
+
+5. CLI11
+   Copyright (c) 2017-2025 University of Cincinnati, developed by Henry
+   Schreiner under NSF AWARD 1414736 and others.
+   Used under a 3-Clause BSD-style License.
+
+   Source and license:
+       https://github.com/CLIUtils/CLI11
+
+------------------------------------------------------------------------------
+
+6. Catch2 (test framework, not redistributed in shipped binaries)
+   Copyright the Catch2 Authors.
    Used under the Boost Software License 1.0.
 
    Source and license:
@@ -41,7 +69,7 @@ distributed under the MIT License (see LICENSE).
 
 ------------------------------------------------------------------------------
 
-4. vcpkg (build-time tooling, not redistributed in binaries)
+7. vcpkg (build-time tooling, not redistributed in shipped binaries)
    Copyright Microsoft Corporation.
    Used under the MIT License.
 
@@ -49,3 +77,13 @@ distributed under the MIT License (see LICENSE).
        https://github.com/microsoft/vcpkg
 
 ------------------------------------------------------------------------------
+
+Note for downstream users:
+
+You may redistribute Texture Channel Packer freely under the MIT License,
+including in commercial and proprietary projects. The single non-trivial
+obligation is that any binary redistribution must ship this notice file
+(or an equivalent acknowledgement) so end users know Qt is bundled under
+LGPLv3 and can obtain the corresponding Qt source if they want it. The
+"replace Qt with your own build" requirement is satisfied by the fact
+that Qt is dynamic-linked next to the executable.

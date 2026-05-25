@@ -7,6 +7,12 @@ without firing up Photoshop or Substance Designer for a thirty-second task.
 Built for game and VFX artists who want one window, one drag, one click,
 one packed texture.
 
+**[➜ Download the latest Windows build](https://github.com/TheDisillusion/TextureChannelPacker/releases/latest)**
+&nbsp;·&nbsp;
+[All releases](https://github.com/TheDisillusion/TextureChannelPacker/releases)
+&nbsp;·&nbsp;
+[Build from source](#building-from-source)
+
 ---
 
 ## What it does
@@ -128,8 +134,7 @@ the command line.
 
 ## License
 
-MIT. Use it for personal projects, commercial work, client deliverables,
-or anything else. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 The Qt 6 framework is bundled under **LGPLv3** (dynamic-linked), which
 adds exactly one requirement to binary redistributions: ship
@@ -155,5 +160,3 @@ Plausible directions if there's interest:
 - Batch mode with filename pattern matching
 - A drag-out from the export button straight into Unreal's content
   browser
-
-PRs and feature requests are welcome.

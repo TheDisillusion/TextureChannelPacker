@@ -43,7 +43,7 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure (core + tests, imaging feature on)
+      - name: Configure (core + app + cli + tests, all features on)
         shell: pwsh
         run: cmake --preset windows-msvc
 

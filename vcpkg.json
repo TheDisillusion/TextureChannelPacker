@@ -11,6 +11,12 @@
     "nlohmann-json"
   ],
   "features": {
+    "cli": {
+      "description": "Pulls in CLI11 for the headless tcp_cli binary. Enabled from Phase 5 onward.",
+      "dependencies": [
+        "cli11"
+      ]
+    },
     "imaging": {
       "description": "Pulls in OpenImageIO for the core image pipeline. Enabled from Phase 1 onward.",
       "dependencies": [

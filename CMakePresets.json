@@ -16,9 +16,10 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_HOST_TRIPLET": "x64-windows",
         "VCPKG_TARGET_TRIPLET": "x64-windows",
-        "VCPKG_MANIFEST_FEATURES": "imaging;gui",
+        "VCPKG_MANIFEST_FEATURES": "imaging;gui;cli",
         "TCP_ENABLE_OIIO": "ON",
-        "TCP_BUILD_APP": "ON"
+        "TCP_BUILD_APP": "ON",
+        "TCP_BUILD_CLI": "ON"
       },
       "warnings": {
         "dev": false,

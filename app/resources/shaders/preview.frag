@@ -123,24 +123,29 @@ void main()
     }
 
     // Apply the channel map exactly like pack().
-    vec4 packed = vec4(0.0, 0.0, 0.0, 1.0);
+    //
+    // Note: the variable is called `dst`, not `packed`, because `packed` is
+    // a reserved keyword in GLSL (layout qualifier for uniform blocks).
+    // Using it as a variable name compiles silently in some drivers and
+    // explodes with a "syntax error, unexpected '='" in others. Don't.
+    vec4 dst = vec4(0.0, 0.0, 0.0, 1.0);
     for (int d = 0; d < 4; ++d) {
         int slot = u_channel_map_slot[d];
         int src  = u_channel_map_source[d];
         if (slot < 0 || slot > 3) {
-            packed[d] = default_for_destination(d);
+            dst[d] = default_for_destination(d);
         } else {
-            packed[d] = extract_channel(slot, src, uv);
+            dst[d] = extract_channel(slot, src, uv);
         }
     }
 
     // View-mode isolation. The default RGB view composites the packed color
     // over the checkerboard so the user can read the alpha channel directly.
-    if (u_view_mode == 1) { frag_color = vec4(vec3(packed.r), 1.0); return; }
-    if (u_view_mode == 2) { frag_color = vec4(vec3(packed.g), 1.0); return; }
-    if (u_view_mode == 3) { frag_color = vec4(vec3(packed.b), 1.0); return; }
-    if (u_view_mode == 4) { frag_color = vec4(vec3(packed.a), 1.0); return; }
+    if (u_view_mode == 1) { frag_color = vec4(vec3(dst.r), 1.0); return; }
+    if (u_view_mode == 2) { frag_color = vec4(vec3(dst.g), 1.0); return; }
+    if (u_view_mode == 3) { frag_color = vec4(vec3(dst.b), 1.0); return; }
+    if (u_view_mode == 4) { frag_color = vec4(vec3(dst.a), 1.0); return; }
 
-    vec3 over_bg = mix(bg, packed.rgb, packed.a);
+    vec3 over_bg = mix(bg, dst.rgb, dst.a);
     frag_color = vec4(over_bg, 1.0);
 }

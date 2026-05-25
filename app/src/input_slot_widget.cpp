@@ -3,6 +3,7 @@
 #include "job_controller.h"
 
 #include "tcp/channel_ref.h"
+#include "tcp/image.h"
 
 #include <QComboBox>
 #include <QDragEnterEvent>
@@ -20,7 +21,9 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 
 namespace tcp::app {
 
@@ -35,6 +38,55 @@ constexpr std::array<const char*, output_channel_count> destination_colors{
 };
 
 constexpr int thumbnail_extent = 56;
+
+// Build an RGBA8 thumbnail directly from the in-memory tcp::Image. Used as a
+// fallback when Qt's QImage(path) returns null — which happens with 16-bit
+// PNGs, certain ICC profiles, EXR/TGA without the right plugins, or just any
+// time the Qt image plugins misbehave. Slow path (per-pixel sampling), but
+// it's only run at thumbnail size and only on slot-load.
+QImage thumbnail_from_tcp_image(const tcp::Image& img, int max_extent)
+{
+    if (img.empty() || max_extent <= 0) {
+        return QImage{};
+    }
+
+    int dst_w = 0;
+    int dst_h = 0;
+    if (img.width() >= img.height()) {
+        dst_w = max_extent;
+        dst_h = std::max(1, static_cast<int>(std::lround(
+                                static_cast<double>(max_extent) * img.height() / img.width())));
+    } else {
+        dst_h = max_extent;
+        dst_w = std::max(1, static_cast<int>(std::lround(
+                                static_cast<double>(max_extent) * img.width() / img.height())));
+    }
+
+    QImage out(dst_w, dst_h, QImage::Format_RGBA8888);
+    const int channels = img.channels();
+    for (int y = 0; y < dst_h; ++y) {
+        auto* row = out.scanLine(y);
+        const int sy = std::min(img.height() - 1,
+                                static_cast<int>(static_cast<double>(y) / dst_h * img.height()));
+        for (int x = 0; x < dst_w; ++x) {
+            const int sx = std::min(img.width() - 1,
+                                    static_cast<int>(static_cast<double>(x) / dst_w * img.width()));
+            auto clamp_u8 = [](float v) {
+                v = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
+                return static_cast<unsigned char>(v * 255.0f + 0.5f);
+            };
+            const unsigned char r = clamp_u8(img.sample_linear(sx, sy, 0));
+            const unsigned char g = channels > 1 ? clamp_u8(img.sample_linear(sx, sy, 1)) : r;
+            const unsigned char b = channels > 2 ? clamp_u8(img.sample_linear(sx, sy, 2)) : r;
+            const unsigned char a = channels > 3 ? clamp_u8(img.sample_linear(sx, sy, 3)) : 255;
+            row[x * 4 + 0] = r;
+            row[x * 4 + 1] = g;
+            row[x * 4 + 2] = b;
+            row[x * 4 + 3] = a;
+        }
+    }
+    return out;
+}
 
 } // namespace
 
@@ -151,18 +203,28 @@ void InputSlotWidget::refresh_state_for_(int slot)
 
 void InputSlotWidget::set_thumbnail_from_(const QString& path)
 {
-    // Use Qt's image decoder for the thumbnail — it is fast for common formats
-    // and saves us a from-tcp::Image conversion at this size. EXR / TGA may
-    // not be readable by Qt without extra plugins; in those cases we fall back
-    // to text so the slot is still usable.
+    // Try Qt's image decoder first — fast for common formats.
     QImage img(path);
+
+    // Fallback: build the thumbnail from the tcp::Image OIIO already
+    // decoded. Covers 16-bit / float PNG, EXR, TGA, and any case where
+    // Qt's imageformats plugins aren't doing the job.
+    if (img.isNull()) {
+        const auto& slot = controller_->job().inputs[slot_index_];
+        if (slot.populated()) {
+            img = thumbnail_from_tcp_image(*slot.image, thumbnail_extent);
+        }
+    }
+
     if (img.isNull()) {
         thumbnail_->setPixmap(QPixmap{});
-        thumbnail_->setText(QStringLiteral("OK"));
+        thumbnail_->setText(QStringLiteral("?"));
         return;
     }
-    const QPixmap pm = QPixmap::fromImage(img.scaled(thumbnail_extent, thumbnail_extent,
-                                                     Qt::KeepAspectRatio, Qt::SmoothTransformation));
+
+    const QPixmap pm = QPixmap::fromImage(
+        img.scaled(thumbnail_extent, thumbnail_extent,
+                   Qt::KeepAspectRatio, Qt::SmoothTransformation));
     thumbnail_->setPixmap(pm);
     thumbnail_->setText(QString{});
 }

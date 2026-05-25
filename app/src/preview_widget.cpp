@@ -86,15 +86,10 @@ PreviewWidget::PreviewWidget(JobController* controller, QWidget* parent)
     setObjectName(QStringLiteral("PreviewWidget"));
     setMouseTracking(true);
     setFocusPolicy(Qt::WheelFocus);
-
-    QSurfaceFormat fmt = format();
-    fmt.setRenderableType(QSurfaceFormat::OpenGL);
-    fmt.setProfile(QSurfaceFormat::CoreProfile);
-    fmt.setVersion(3, 3);
-    fmt.setDepthBufferSize(0);
-    fmt.setStencilBufferSize(0);
-    fmt.setSwapInterval(1);
-    setFormat(fmt);
+    // The OpenGL 3.3 Core surface format is set as the default in main.cpp
+    // (before QApplication), which is the only point early enough on some
+    // Windows drivers. Setting it from here is too late and lets the widget
+    // be created with a 2.x context that can't compile our shaders.
 
     connect(controller_, &JobController::slot_loaded, this, &PreviewWidget::on_slot_loaded_);
     connect(controller_, &JobController::slot_cleared, this, &PreviewWidget::on_slot_cleared_);
@@ -125,16 +120,41 @@ void PreviewWidget::initializeGL()
     glClearColor(0.05f, 0.05f, 0.05f, 1.0f);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    program_ = std::make_unique<QOpenGLShaderProgram>();
+    // One-time diagnostic dump. Goes to tcp.log via the message handler in
+    // main.cpp; invaluable when a user reports "preview is black".
+    auto gl_string = [this](GLenum name) {
+        const GLubyte* s = glGetString(name);
+        return s ? QString::fromUtf8(reinterpret_cast<const char*>(s)) : QStringLiteral("(null)");
+    };
+    qInfo().noquote() << "GL_VENDOR  :" << gl_string(GL_VENDOR);
+    qInfo().noquote() << "GL_RENDERER:" << gl_string(GL_RENDERER);
+    qInfo().noquote() << "GL_VERSION :" << gl_string(GL_VERSION);
+    qInfo().noquote() << "GLSL       :" << gl_string(GL_SHADING_LANGUAGE_VERSION);
+
     const QString vert = read_shader_source(QStringLiteral(":/tcp/shaders/preview.vert"));
     const QString frag = read_shader_source(QStringLiteral(":/tcp/shaders/preview.frag"));
-    if (vert.isEmpty() || frag.isEmpty()
-        || !program_->addShaderFromSourceCode(QOpenGLShader::Vertex, vert)
-        || !program_->addShaderFromSourceCode(QOpenGLShader::Fragment, frag)
-        || !program_->link()) {
-        // Leave program_ around; paintGL will detect !isLinked and just clear.
-        qWarning("PreviewWidget: shader compile/link failed: %s",
-                 qUtf8Printable(program_->log()));
+    qInfo() << "preview.vert source size:" << vert.size();
+    qInfo() << "preview.frag source size:" << frag.size();
+
+    program_ = std::make_unique<QOpenGLShaderProgram>();
+    bool ok = !vert.isEmpty() && !frag.isEmpty();
+    if (!ok) {
+        qCritical("preview shader resource(s) empty — :/tcp/shaders/preview.{vert,frag} missing?");
+    }
+    if (ok && !program_->addShaderFromSourceCode(QOpenGLShader::Vertex, vert)) {
+        qCritical("preview vertex shader compile failed:\n%s", qUtf8Printable(program_->log()));
+        ok = false;
+    }
+    if (ok && !program_->addShaderFromSourceCode(QOpenGLShader::Fragment, frag)) {
+        qCritical("preview fragment shader compile failed:\n%s", qUtf8Printable(program_->log()));
+        ok = false;
+    }
+    if (ok && !program_->link()) {
+        qCritical("preview program link failed:\n%s", qUtf8Printable(program_->log()));
+        ok = false;
+    }
+    if (ok) {
+        qInfo("preview shader program linked successfully");
     }
 
     // Fullscreen triangle (cheaper than a quad — single primitive).

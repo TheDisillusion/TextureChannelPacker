@@ -6,7 +6,7 @@ namespace tcp {
 
 inline constexpr int version_major = 0;
 inline constexpr int version_minor = 3;
-inline constexpr int version_patch = 0;
+inline constexpr int version_patch = 1;
 
 std::string_view version_string() noexcept;
 

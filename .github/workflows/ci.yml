@@ -43,7 +43,7 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure (core + tests only — Phase 0 scope)
+      - name: Configure (core + tests, imaging feature on)
         shell: pwsh
         run: cmake --preset windows-msvc
 

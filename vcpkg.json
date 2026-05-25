@@ -7,21 +7,13 @@
   "supports": "windows & !uwp & !static",
   "builtin-baseline": "d015e31e90838a4c9dfa3eed45979bc70d9357fc",
   "dependencies": [
-    {
-      "name": "catch2",
-      "version>=": "3.5.0"
-    }
+    "catch2"
   ],
   "features": {
     "imaging": {
       "description": "Pulls in OpenImageIO for the core image pipeline. Enabled from Phase 1 onward.",
       "dependencies": [
-        {
-          "name": "openimageio",
-          "default-features": false,
-          "features": ["openexr", "tools"],
-          "version>=": "2.5.0"
-        }
+        "openimageio"
       ]
     },
     "gui": {
@@ -32,9 +24,7 @@
           "default-features": false,
           "features": ["gui", "widgets", "opengl", "opengl-widgets"]
         },
-        {
-          "name": "qtimageformats"
-        }
+        "qtimageformats"
       ]
     }
   }

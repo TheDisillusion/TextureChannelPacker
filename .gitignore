@@ -4,6 +4,9 @@ out/
 cmake-build-*/
 *.user
 
+# Local build/test logs
+build-*.log
+
 # CMake
 CMakeCache.txt
 CMakeFiles/

@@ -7,10 +7,22 @@
 # ------------------------------------------------------------------------------
 
 set(TCP_CORE_PUBLIC_HEADERS
+    include/tcp/channel_ref.h
+    include/tcp/exporter.h
+    include/tcp/image.h
+    include/tcp/loader.h
+    include/tcp/pack_job.h
+    include/tcp/pixel_format.h
+    include/tcp/resize.h
     include/tcp/version.h
 )
 
 set(TCP_CORE_SOURCES
+    src/exporter.cpp
+    src/image.cpp
+    src/loader_oiio.cpp
+    src/pack_job.cpp
+    src/resize.cpp
     src/version.cpp
 )
 

@@ -46,6 +46,10 @@ QStatusBar QLabel {
     color: #a0a0a0;
     background: transparent;
 }
+QStatusBar QLabel#Toast {
+    color: #5be877;
+    font-weight: 500;
+}
 
 QFrame#InputsPanel,
 QFrame#OutputPanel,

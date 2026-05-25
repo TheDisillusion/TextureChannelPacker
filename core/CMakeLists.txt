@@ -13,6 +13,7 @@ set(TCP_CORE_PUBLIC_HEADERS
     include/tcp/loader.h
     include/tcp/pack_job.h
     include/tcp/pixel_format.h
+    include/tcp/project.h
     include/tcp/resize.h
     include/tcp/version.h
 )
@@ -22,6 +23,7 @@ set(TCP_CORE_SOURCES
     src/image.cpp
     src/loader_oiio.cpp
     src/pack_job.cpp
+    src/project_json.cpp
     src/resize.cpp
     src/version.cpp
 )
@@ -39,6 +41,9 @@ target_include_directories(tcp_core
 )
 
 target_compile_features(tcp_core PUBLIC cxx_std_20)
+
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(tcp_core PRIVATE nlohmann_json::nlohmann_json)
 
 # OpenImageIO link is opt-in until Phase 1.
 if(TCP_ENABLE_OIIO)

@@ -2,7 +2,7 @@
 
 A focused desktop tool for game-dev and VFX artists: drag textures into R/G/B/A slots, route source channels, preview the packed result live, and export to PNG / TGA. DDS/BC compression and Unreal export presets land in later phases.
 
-> **Status:** Phase 3 — live GPU preview. Drag textures into slots and see the packed result update in real time on a GLSL 3.3 shader pipeline; channel-isolation views, zoom/pan, checkerboard alpha. Export polish + project save/load land in Phase 4.
+> **Status:** v0.1.0 — first usable release. Drag four textures, pick channel sources, preview live, export PNG/TGA. Project save/load (JSON), keyboard shortcuts, dark theme, toast notifications. CLI mode and DDS/BC compression land in Phase 5+.
 
 ---
 

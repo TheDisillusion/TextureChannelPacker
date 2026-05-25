@@ -42,6 +42,51 @@ OutputPanel::OutputPanel(JobController* controller, QWidget* parent)
     connect(controller_, &JobController::export_finished, this, &OutputPanel::on_export_finished_);
     connect(controller_, &JobController::export_failed, this, &OutputPanel::on_export_failed_);
 
+    // Stay in sync with controller-side state changes (e.g. when a project
+    // is loaded). We block our own combo signals while updating from the
+    // controller so the round-trip doesn't fire spurious set_* calls.
+    connect(controller_, &JobController::output_format_kind_changed, this,
+            [this](tcp::exporter::Format fmt) {
+                const int idx = format_combo_->findData(static_cast<int>(fmt));
+                if (idx >= 0) {
+                    QSignalBlocker block(format_combo_);
+                    format_combo_->setCurrentIndex(idx);
+                    on_format_changed_(idx); // refresh bit-depth enable
+                }
+            });
+    connect(controller_, &JobController::output_format_changed, this,
+            [this](tcp::PixelFormat pf) {
+                const int idx = bit_depth_combo_->findData(static_cast<int>(pf));
+                if (idx >= 0) {
+                    QSignalBlocker block(bit_depth_combo_);
+                    bit_depth_combo_->setCurrentIndex(idx);
+                }
+            });
+    connect(controller_, &JobController::resize_mode_changed, this,
+            [this](tcp::ResizeMode mode) {
+                const int idx = resize_mode_combo_->findData(static_cast<int>(mode));
+                if (idx >= 0) {
+                    QSignalBlocker block(resize_mode_combo_);
+                    resize_mode_combo_->setCurrentIndex(idx);
+                    apply_resize_mode_visibility_();
+                }
+            });
+    connect(controller_, &JobController::resize_filter_changed, this,
+            [this](tcp::ResizeFilter f) {
+                const int idx = filter_combo_->findData(static_cast<int>(f));
+                if (idx >= 0) {
+                    QSignalBlocker block(filter_combo_);
+                    filter_combo_->setCurrentIndex(idx);
+                }
+            });
+    connect(controller_, &JobController::custom_size_changed, this,
+            [this](int w, int h) {
+                QSignalBlocker bw(custom_width_);
+                QSignalBlocker bh(custom_height_);
+                custom_width_->setValue(w);
+                custom_height_->setValue(h);
+            });
+
     apply_resize_mode_visibility_();
 }
 
@@ -148,6 +193,7 @@ void OutputPanel::on_format_changed_(int combo_index)
         return;
     }
     const auto fmt = static_cast<exporter::Format>(format_combo_->itemData(combo_index).toInt());
+    controller_->set_output_format_kind(fmt);
     // TGA only supports 8-bit; keep the UI in sync without nagging the user.
     if (fmt == exporter::Format::TGA) {
         bit_depth_combo_->setCurrentIndex(0);
@@ -206,8 +252,7 @@ void OutputPanel::on_populated_slots_changed_(int populated)
 
 void OutputPanel::on_export_clicked_()
 {
-    const auto current_format = static_cast<exporter::Format>(
-        format_combo_->currentData().toInt());
+    const auto current_format = controller_->output_format_kind();
     const QString ext = (current_format == exporter::Format::PNG) ? QStringLiteral("png")
                                                                   : QStringLiteral("tga");
     const QString filter = (current_format == exporter::Format::PNG)

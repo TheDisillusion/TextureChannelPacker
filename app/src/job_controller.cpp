@@ -177,6 +177,67 @@ void JobController::set_output_format(PixelFormat fmt)
     emit output_format_changed(fmt);
 }
 
+void JobController::set_output_format_kind(exporter::Format fmt)
+{
+    if (output_format_kind_ == fmt) {
+        return;
+    }
+    output_format_kind_ = fmt;
+    emit output_format_kind_changed(fmt);
+}
+
+void JobController::reset()
+{
+    apply_project(project::Project{});
+}
+
+project::Project JobController::snapshot_project() const
+{
+    project::Project p;
+    p.job = job_;
+    // Strip Image pointers — the on-disk format only stores paths.
+    for (auto& s : p.job.inputs) {
+        s.image.reset();
+    }
+    p.output.format = output_format_kind_;
+    return p;
+}
+
+void JobController::apply_project(const project::Project& project)
+{
+    job_ = project.job;
+    // Discard any pixel data that came in via copy — projects only ever
+    // store paths on disk, but defensively wipe in case a caller passed a
+    // live job by value.
+    for (auto& s : job_.inputs) {
+        s.image.reset();
+    }
+    output_format_kind_ = project.output.format;
+
+    emit project_reset();
+    emit output_format_kind_changed(output_format_kind_);
+    emit output_format_changed(job_.output_format);
+    emit resize_mode_changed(job_.resize_mode);
+    emit resize_filter_changed(job_.resize_filter);
+    emit custom_size_changed(job_.custom_size.width, job_.custom_size.height);
+    for (int i = 0; i < output_channel_count; ++i) {
+        emit channel_map_changed(i, job_.channel_map[i]);
+    }
+    for (int i = 0; i < slot_count; ++i) {
+        emit slot_cleared(i);
+    }
+    emit_derived_signals_();
+
+    // Re-trigger async loads for any populated path. Each load() fires the
+    // standard slot_loading -> slot_loaded sequence so widgets repaint.
+    for (int i = 0; i < slot_count; ++i) {
+        const auto& path = job_.inputs[i].path;
+        if (!path.empty()) {
+            load_slot(i, QString::fromStdU16String(path.u16string()));
+        }
+    }
+}
+
 void JobController::export_to(const QString& path, exporter::Format format)
 {
     emit export_started(path);

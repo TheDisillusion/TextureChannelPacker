@@ -12,6 +12,7 @@ set(TCP_TEST_SOURCES
     test_resize.cpp
     test_io_roundtrip.cpp
     test_pack_job.cpp
+    test_project.cpp
 )
 
 add_executable(tcp_tests ${TCP_TEST_SOURCES})

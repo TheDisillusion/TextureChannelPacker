@@ -6,7 +6,9 @@
 #include <QButtonGroup>
 #include <QCheckBox>
 #include <QHBoxLayout>
+#include <QKeySequence>
 #include <QLabel>
+#include <QShortcut>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -99,6 +101,24 @@ void PreviewPanel::build_ui_()
     layout->addWidget(title);
     layout->addLayout(toolbar);
     layout->addWidget(preview_, 1);
+
+    // Local shortcuts. Window-scoped so they don't fire when the user is
+    // typing in a spinbox or save dialog.
+    auto add_shortcut = [this](QKeySequence key, auto&& fn) {
+        auto* s = new QShortcut(key, this);
+        s->setContext(Qt::WindowShortcut);
+        connect(s, &QShortcut::activated, this, fn);
+    };
+    add_shortcut(QKeySequence(Qt::Key_F), [this] { preview_->fit_to_window(); });
+    add_shortcut(QKeySequence(Qt::Key_1), [this] { preview_->set_one_to_one(); });
+    add_shortcut(QKeySequence(Qt::Key_0), [this] { preview_->fit_to_window(); });
+    add_shortcut(QKeySequence(Qt::Key_R), [this, r_btn] {
+        r_btn->click();
+    });
+    add_shortcut(QKeySequence(Qt::Key_G), [this, g_btn] { g_btn->click(); });
+    add_shortcut(QKeySequence(Qt::Key_B), [this, b_btn] { b_btn->click(); });
+    add_shortcut(QKeySequence(Qt::Key_A), [this, a_btn] { a_btn->click(); });
+    add_shortcut(QKeySequence(Qt::Key_QuoteLeft), [this, rgb_btn] { rgb_btn->click(); });
 }
 
 } // namespace tcp::app

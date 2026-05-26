@@ -62,6 +62,14 @@ struct SaveOptions
 
     // Only consulted when format == DDS.
     BcVariant bc_variant = BcVariant::BC7;
+
+    // When true and format == DDS, write the DDS bottom-up (last source row
+    // first). Engines that don't re-orient DDS on import (Unity and other
+    // GL-UV-convention consumers) will then display the texture right-side-up.
+    // Default false so D3D-native tools and Unreal get standard top-down DDS.
+    // Ignored for PNG / TGA — those formats are correctly re-oriented by
+    // every engine importer we care about.
+    bool flip_vertical = false;
 };
 
 struct SaveResult

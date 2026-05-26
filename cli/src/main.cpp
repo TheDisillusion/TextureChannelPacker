@@ -111,7 +111,12 @@ int load_inputs(tcp::PackJob& job, std::string& error_out)
 
 fs::path infer_output_extension(tcp::exporter::Format kind)
 {
-    return (kind == tcp::exporter::Format::PNG) ? fs::path("packed.png") : fs::path("packed.tga");
+    switch (kind) {
+        case tcp::exporter::Format::PNG: return fs::path("packed.png");
+        case tcp::exporter::Format::TGA: return fs::path("packed.tga");
+        case tcp::exporter::Format::DDS: return fs::path("packed.dds");
+    }
+    return fs::path("packed.png");
 }
 
 // Parse a --bc value into BcVariant. Returns nullopt on unknown input.
@@ -121,7 +126,8 @@ std::optional<tcp::exporter::BcVariant> parse_bc(const std::string& s)
 }
 
 int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>& output_override,
-                     std::optional<tcp::exporter::BcVariant> bc_override, bool quiet)
+                     std::optional<tcp::exporter::BcVariant> bc_override,
+                     std::optional<bool> flip_override, bool quiet)
 {
     auto load_res = tcp::project::load(project_path);
     if (!load_res.ok()) {
@@ -158,6 +164,7 @@ int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>
     if (bc_override) {
         save_opts.bc_variant = *bc_override;
     }
+    save_opts.flip_vertical = flip_override.value_or(project.output.flip_vertical);
     auto save_res = tcp::exporter::save(*packed.image, out_path, save_opts);
     if (!save_res.ok) {
         std::cerr << "error: save failed: " << save_res.error << "\n";
@@ -173,7 +180,8 @@ int cmd_pack_project(const fs::path& project_path, const std::optional<fs::path>
 int cmd_pack_preset(const std::string& preset_id,
                     const std::vector<std::string>& slot_assignments,
                     const std::optional<fs::path>& output_override,
-                    std::optional<tcp::exporter::BcVariant> bc_override, bool quiet)
+                    std::optional<tcp::exporter::BcVariant> bc_override,
+                    std::optional<bool> flip_override, bool quiet)
 {
     auto p = tcp::preset::find_preset(preset_id);
     if (!p) {
@@ -227,6 +235,7 @@ int cmd_pack_preset(const std::string& preset_id,
     if (bc_override) {
         save_opts.bc_variant = *bc_override;
     }
+    save_opts.flip_vertical = flip_override.value_or(false);
     auto save_res = tcp::exporter::save(*packed.image, out_path, save_opts);
     if (!save_res.ok) {
         std::cerr << "error: save failed: " << save_res.error << "\n";
@@ -271,6 +280,14 @@ int main(int argc, char** argv)
     pack->add_option("--bc", bc_arg,
                      "BC variant for DDS output: uncompressed|bc1|bc3|bc5|bc7 (default bc7). "
                      "Ignored for PNG/TGA outputs.");
+    auto* flip_y_flag = pack->add_flag("--flip-y",
+                     "Write DDS bottom-up so Unity / GL-UV engines display it "
+                     "right-side-up. Ignored for PNG/TGA. Overrides any "
+                     "flip_vertical set in the project file.");
+    auto* no_flip_y_flag = pack->add_flag("--no-flip-y",
+                     "Force standard top-down DDS, overriding any flip_vertical "
+                     "set in the project file. Mutually exclusive with --flip-y.");
+    flip_y_flag->excludes(no_flip_y_flag);
 
     CLI11_PARSE(app, argc, argv);
 
@@ -293,6 +310,13 @@ int main(int argc, char** argv)
             }
         }
 
+        std::optional<bool> flip_override;
+        if (flip_y_flag->count() > 0) {
+            flip_override = true;
+        } else if (no_flip_y_flag->count() > 0) {
+            flip_override = false;
+        }
+
         const bool have_project = !project_path_arg.empty();
         const bool have_preset = !preset_id_arg.empty();
         if (have_project == have_preset) {
@@ -302,9 +326,10 @@ int main(int argc, char** argv)
 
         if (have_project) {
             return cmd_pack_project(std::filesystem::path(project_path_arg), output_override,
-                                    bc_override, quiet);
+                                    bc_override, flip_override, quiet);
         }
-        return cmd_pack_preset(preset_id_arg, slot_assignments, output_override, bc_override, quiet);
+        return cmd_pack_preset(preset_id_arg, slot_assignments, output_override, bc_override,
+                               flip_override, quiet);
     }
 
     return exit_ok;

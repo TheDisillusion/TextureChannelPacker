@@ -33,6 +33,7 @@ public:
     [[nodiscard]] bool any_slot_populated() const noexcept;
     [[nodiscard]] exporter::Format output_format_kind() const noexcept { return output_format_kind_; }
     [[nodiscard]] exporter::BcVariant bc_variant() const noexcept { return bc_variant_; }
+    [[nodiscard]] bool flip_vertical_y() const noexcept { return flip_vertical_y_; }
 
     // Drop everything and start from scratch (used by File > New).
     void reset();
@@ -59,6 +60,7 @@ public:
     void set_output_format(PixelFormat fmt);
     void set_output_format_kind(exporter::Format fmt);
     void set_bc_variant(exporter::BcVariant variant);
+    void set_flip_vertical_y(bool flip);
 
     // Synchronous: the underlying pack op is fast enough that off-thread isn't
     // necessary for export. Saving to disk IS off-thread.
@@ -81,6 +83,7 @@ signals:
     void output_format_changed(tcp::PixelFormat fmt);
     void output_format_kind_changed(tcp::exporter::Format fmt);
     void bc_variant_changed(tcp::exporter::BcVariant variant);
+    void flip_vertical_y_changed(bool flip);
 
     // Fires after apply_project replaces the whole job state; widgets should
     // re-sync from controller->job() in response.
@@ -102,6 +105,7 @@ private:
     PackJob job_;
     exporter::Format output_format_kind_ = exporter::Format::PNG;
     exporter::BcVariant bc_variant_ = exporter::BcVariant::BC7;
+    bool flip_vertical_y_ = false;
 };
 
 } // namespace tcp::app

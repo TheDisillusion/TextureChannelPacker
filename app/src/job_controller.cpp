@@ -195,6 +195,15 @@ void JobController::set_bc_variant(exporter::BcVariant variant)
     emit bc_variant_changed(variant);
 }
 
+void JobController::set_flip_vertical_y(bool flip)
+{
+    if (flip_vertical_y_ == flip) {
+        return;
+    }
+    flip_vertical_y_ = flip;
+    emit flip_vertical_y_changed(flip);
+}
+
 void JobController::reset()
 {
     apply_project(project::Project{});
@@ -209,6 +218,7 @@ project::Project JobController::snapshot_project() const
         s.image.reset();
     }
     p.output.format = output_format_kind_;
+    p.output.flip_vertical = flip_vertical_y_;
     return p;
 }
 
@@ -222,9 +232,11 @@ void JobController::apply_project(const project::Project& project)
         s.image.reset();
     }
     output_format_kind_ = project.output.format;
+    flip_vertical_y_ = project.output.flip_vertical;
 
     emit project_reset();
     emit output_format_kind_changed(output_format_kind_);
+    emit flip_vertical_y_changed(flip_vertical_y_);
     emit output_format_changed(job_.output_format);
     emit resize_mode_changed(job_.resize_mode);
     emit resize_filter_changed(job_.resize_filter);
@@ -259,9 +271,11 @@ void JobController::export_to(const QString& path, exporter::Format format)
     const QString captured_path = path;
     const exporter::Format captured_format = format;
     const exporter::BcVariant captured_bc = bc_variant_;
+    const bool captured_flip = flip_vertical_y_;
 
     QThreadPool::globalInstance()->start(
-        [self, snapshot = std::move(snapshot), captured_path, captured_format, captured_bc] {
+        [self, snapshot = std::move(snapshot), captured_path, captured_format, captured_bc,
+         captured_flip] {
             auto packed = pack(snapshot);
             QString error_text;
             if (!packed.ok()) {
@@ -270,6 +284,7 @@ void JobController::export_to(const QString& path, exporter::Format format)
                 exporter::SaveOptions opts;
                 opts.format = captured_format;
                 opts.bc_variant = captured_bc;
+                opts.flip_vertical = captured_flip;
                 auto save_res = exporter::save(*packed.image, qstring_to_path(captured_path), opts);
                 if (!save_res.ok) {
                     error_text = QString::fromStdString(save_res.error);

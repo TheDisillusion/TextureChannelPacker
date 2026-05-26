@@ -57,7 +57,7 @@ struct Rgba8Buffer
     std::size_t row_pitch = 0;
 };
 
-Rgba8Buffer to_rgba8(const Image& img)
+Rgba8Buffer to_rgba8(const Image& img, bool flip_vertical)
 {
     Rgba8Buffer out;
     const std::size_t w = static_cast<std::size_t>(img.width());
@@ -65,18 +65,33 @@ Rgba8Buffer to_rgba8(const Image& img)
     out.row_pitch = w * 4;
     out.bytes.resize(out.row_pitch * h);
 
+    // Map destination row -> source row. With flip_vertical, the last source
+    // row lands at the top of the destination so DDS readers that don't
+    // re-orient (Unity et al.) see the image right-side-up.
+    auto src_row = [h, flip_vertical](std::size_t dst_y) {
+        return flip_vertical ? (h - 1 - dst_y) : dst_y;
+    };
+
     if (img.format() == PixelFormat::U8 && img.channels() == 4) {
-        std::memcpy(out.bytes.data(), img.data(), out.bytes.size());
+        if (!flip_vertical) {
+            std::memcpy(out.bytes.data(), img.data(), out.bytes.size());
+            return out;
+        }
+        const auto* src_bytes = static_cast<const std::byte*>(img.data());
+        for (std::size_t y = 0; y < h; ++y) {
+            const std::byte* src = src_bytes + src_row(y) * out.row_pitch;
+            std::memcpy(out.bytes.data() + y * out.row_pitch, src, out.row_pitch);
+        }
         return out;
     }
 
     // Slow path: convert via sample_linear, which handles any source layout.
-    for (int y = 0; y < img.height(); ++y) {
+    for (std::size_t y = 0; y < h; ++y) {
+        const int sy = static_cast<int>(src_row(y));
         for (int x = 0; x < img.width(); ++x) {
-            const std::size_t base = static_cast<std::size_t>(y) * out.row_pitch
-                                     + static_cast<std::size_t>(x) * 4;
+            const std::size_t base = y * out.row_pitch + static_cast<std::size_t>(x) * 4;
             for (int c = 0; c < 4; ++c) {
-                float v = img.sample_linear(x, y, c);
+                float v = img.sample_linear(x, sy, c);
                 v = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
                 out.bytes[base + static_cast<std::size_t>(c)]
                     = static_cast<std::uint8_t>(v * 255.0f + 0.5f);
@@ -119,7 +134,7 @@ SaveResult save_dds(const Image& img, const std::filesystem::path& path,
         }
     }
 
-    Rgba8Buffer rgba = to_rgba8(img);
+    Rgba8Buffer rgba = to_rgba8(img, opts.flip_vertical);
 
     DirectX::Image src_image{};
     src_image.width = static_cast<std::size_t>(img.width());

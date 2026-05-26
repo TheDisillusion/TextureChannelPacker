@@ -2,6 +2,7 @@
 
 #include <QFrame>
 
+class QCheckBox;
 class QComboBox;
 class QLabel;
 class QPushButton;
@@ -43,6 +44,7 @@ private:
     QComboBox* bit_depth_combo_ = nullptr;
     QComboBox* bc_variant_combo_ = nullptr;
     class QLabel* bc_variant_label_ = nullptr;
+    QCheckBox* flip_vertical_check_ = nullptr;
     QComboBox* resize_mode_combo_ = nullptr;
     QComboBox* filter_combo_ = nullptr;
     QSpinBox* custom_width_ = nullptr;

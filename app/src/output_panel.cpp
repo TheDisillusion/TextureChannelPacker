@@ -7,6 +7,7 @@
 #include "tcp/pixel_format.h"
 #include "tcp/resize.h"
 
+#include <QCheckBox>
 #include <QComboBox>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -94,6 +95,11 @@ OutputPanel::OutputPanel(JobController* controller, QWidget* parent)
                     bc_variant_combo_->setCurrentIndex(idx);
                 }
             });
+    connect(controller_, &JobController::flip_vertical_y_changed, this,
+            [this](bool flip) {
+                QSignalBlocker block(flip_vertical_check_);
+                flip_vertical_check_->setChecked(flip);
+            });
 
     apply_resize_mode_visibility_();
     on_format_changed_(format_combo_->currentIndex()); // initial visibility of BC widgets
@@ -124,6 +130,16 @@ void OutputPanel::build_ui_()
                                static_cast<int>(exporter::BcVariant::Uncompressed));
     connect(bc_variant_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
             &OutputPanel::on_bc_variant_changed_);
+
+    flip_vertical_check_ = new QCheckBox(QStringLiteral("Flip Y (Unity / OpenGL)"), this);
+    flip_vertical_check_->setToolTip(tr(
+        "Write the DDS bottom-up so engines that don't re-orient on import "
+        "(Unity, other GL-UV consumers) display it right-side-up. Leave off "
+        "for D3D-native tools and Unreal."));
+    flip_vertical_check_->setChecked(controller_->flip_vertical_y());
+    connect(flip_vertical_check_, &QCheckBox::toggled, this, [this](bool checked) {
+        controller_->set_flip_vertical_y(checked);
+    });
 
     bit_depth_combo_ = new QComboBox(this);
     bit_depth_combo_->addItem(QStringLiteral("8-bit"), static_cast<int>(PixelFormat::U8));
@@ -183,6 +199,7 @@ void OutputPanel::build_ui_()
     form->addRow(QStringLiteral("Bit depth"), bit_depth_combo_);
     bc_variant_label_ = new QLabel(QStringLiteral("BC variant"), this);
     form->addRow(bc_variant_label_, bc_variant_combo_);
+    form->addRow(QString{}, flip_vertical_check_);
     form->addRow(QStringLiteral("Resize mode"), resize_mode_combo_);
     form->addRow(QStringLiteral("Filter"), filter_combo_);
 
@@ -234,6 +251,9 @@ void OutputPanel::on_format_changed_(int combo_index)
     bc_variant_combo_->setVisible(is_dds);
     if (bc_variant_label_) {
         bc_variant_label_->setVisible(is_dds);
+    }
+    if (flip_vertical_check_) {
+        flip_vertical_check_->setVisible(is_dds);
     }
 }
 

@@ -57,6 +57,8 @@ MainWindow::MainWindow(QWidget* parent)
             &MainWindow::on_mark_dirty_);
     connect(controller_, &JobController::slot_treat_as_srgb_changed, this,
             &MainWindow::on_mark_dirty_);
+    connect(controller_, &JobController::flip_vertical_y_changed, this,
+            &MainWindow::on_mark_dirty_);
 
     // Surface async export status as toasts in the main window — keeps the
     // success path quiet and the failure path obvious.

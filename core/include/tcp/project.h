@@ -18,6 +18,11 @@ inline constexpr int schema_version = 1;
 struct OutputSettings
 {
     exporter::Format format = exporter::Format::PNG;
+
+    // Mirrors SaveOptions::flip_vertical — persisted per project so a Unity
+    // user's flipped-DDS toggle survives a save/reload. Only meaningful when
+    // format == DDS; the exporter ignores it for PNG / TGA.
+    bool flip_vertical = false;
 };
 
 struct Project

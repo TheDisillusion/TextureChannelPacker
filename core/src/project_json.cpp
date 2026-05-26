@@ -114,6 +114,7 @@ std::string_view name_of(exporter::Format f) noexcept
     switch (f) {
         case exporter::Format::PNG: return "PNG";
         case exporter::Format::TGA: return "TGA";
+        case exporter::Format::DDS: return "DDS";
     }
     return "PNG";
 }
@@ -122,6 +123,7 @@ std::optional<exporter::Format> exporter_format_from_string(std::string_view s) 
 {
     if (s == "PNG") return exporter::Format::PNG;
     if (s == "TGA") return exporter::Format::TGA;
+    if (s == "DDS") return exporter::Format::DDS;
     return std::nullopt;
 }
 
@@ -220,6 +222,7 @@ SaveResult save(const Project& project, const std::filesystem::path& path,
         };
         root["output_bit_depth"] = name_of(project.job.output_format);
         root["output_format"] = name_of(project.output.format);
+        root["output_flip_vertical"] = project.output.flip_vertical;
 
         std::ofstream out(path, std::ios::binary | std::ios::trunc);
         if (!out.is_open()) {
@@ -303,6 +306,7 @@ LoadResult load(const std::filesystem::path& path)
         if (const auto ef = exporter_format_from_string(root.value("output_format", "PNG"))) {
             p.output.format = *ef;
         }
+        p.output.flip_vertical = root.value("output_flip_vertical", false);
 
         result.project = std::move(p);
     } catch (const std::exception& e) {

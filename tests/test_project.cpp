@@ -35,7 +35,8 @@ tcp::project::Project make_sample_project()
     p.job.resize_filter = tcp::ResizeFilter::Lanczos;
     p.job.custom_size = {2048, 1024};
     p.job.output_format = tcp::PixelFormat::U16;
-    p.output.format = tcp::exporter::Format::PNG;
+    p.output.format = tcp::exporter::Format::DDS;
+    p.output.flip_vertical = true;
     return p;
 }
 
@@ -72,6 +73,7 @@ TEST_CASE("project save -> load preserves every field", "[project][roundtrip]")
     REQUIRE(loaded.job.custom_size.height == original.job.custom_size.height);
     REQUIRE(loaded.job.output_format == original.job.output_format);
     REQUIRE(loaded.output.format == original.output.format);
+    REQUIRE(loaded.output.flip_vertical == original.output.flip_vertical);
 }
 
 TEST_CASE("project loader rejects an unknown schema_version", "[project][error]")

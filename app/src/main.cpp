@@ -3,10 +3,13 @@
 #include "tcp/version.h"
 
 #include <QApplication>
+#include <QColor>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QIcon>
+#include <QPixmap>
 #include <QString>
 #include <QSurfaceFormat>
 #include <QTextStream>
@@ -77,6 +80,19 @@ void apply_dark_theme(QApplication& app)
     app.setStyleSheet(stream.readAll());
 }
 
+// Pre-populate QApplication::windowIcon() with a non-null QPixmap so Qt does
+// not lazily construct an HICON from a null QBitmap when the OS asks for the
+// taskbar / Alt-Tab icon. That lazy path tripped a Format_Mono assert in the
+// Debug build (qpixmap_win.cpp:200) and silently returned a NULL HICON in
+// Release, which in turn could disturb downstream UI rendering. A plain
+// 16×16 filled pixmap is enough to keep that path off the stack entirely.
+void install_default_window_icon(QApplication& app)
+{
+    QPixmap pm(16, 16);
+    pm.fill(QColor(0x1e, 0x1e, 0x1e)); // matches dark theme background
+    app.setWindowIcon(QIcon(pm));
+}
+
 } // namespace
 
 int main(int argc, char* argv[])
@@ -110,6 +126,7 @@ int main(int argc, char* argv[])
             << "starting";
 
     apply_dark_theme(app);
+    install_default_window_icon(app);
 
     tcp::app::MainWindow window;
     window.show();

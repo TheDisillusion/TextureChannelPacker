@@ -222,10 +222,28 @@ void InputSlotWidget::set_thumbnail_from_(const QString& path)
         return;
     }
 
-    const QPixmap pm = QPixmap::fromImage(
-        img.scaled(thumbnail_extent, thumbnail_extent,
-                   Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    thumbnail_->setPixmap(pm);
+    // Qt's image plugins may return formats other than 32-bit ARGB
+    // (Format_Mono for 1-bit PNGs, Format_Grayscale8, Format_Indexed8, etc.).
+    // Some downstream Win32 conversions Qt does internally for pixmap-backed
+    // QLabels misbehave on the less common formats. Normalize here so the
+    // pixmap is guaranteed to be in a well-supported state regardless of
+    // what the source file looked like.
+    QImage normalized = img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+    if (normalized.isNull()) {
+        thumbnail_->setPixmap(QPixmap{});
+        thumbnail_->setText(QStringLiteral("?"));
+        return;
+    }
+
+    const QImage scaled = normalized.scaled(thumbnail_extent, thumbnail_extent,
+                                            Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    if (scaled.isNull()) {
+        thumbnail_->setPixmap(QPixmap{});
+        thumbnail_->setText(QStringLiteral("?"));
+        return;
+    }
+
+    thumbnail_->setPixmap(QPixmap::fromImage(scaled));
     thumbnail_->setText(QString{});
 }
 

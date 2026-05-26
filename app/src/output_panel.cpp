@@ -10,10 +10,12 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFileDialog>
+#include <QFontMetrics>
 #include <QFormLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QResizeEvent>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QVBoxLayout>
@@ -185,7 +187,12 @@ void OutputPanel::build_ui_()
 
     status_label_ = new QLabel(QString{}, this);
     status_label_->setObjectName(QStringLiteral("StatusLabel"));
-    status_label_->setWordWrap(true);
+    // Word-wrap on a QLabel inside a QVBoxLayout triggers a height-for-width
+    // sizing race on resize that can briefly leave the label clipped or
+    // overlapping its neighbours. Elide on a single line instead; the full
+    // text lives on the tooltip.
+    status_label_->setTextFormat(Qt::PlainText);
+    status_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
     export_button_ = new QPushButton(QStringLiteral("Export…"), this);
     export_button_->setObjectName(QStringLiteral("ExportButton"));
@@ -347,21 +354,48 @@ void OutputPanel::on_export_clicked_()
 void OutputPanel::on_export_started_(const QString& path)
 {
     export_button_->setEnabled(false);
-    status_label_->setText(tr("Exporting to %1…").arg(path));
+    set_status_text_(tr("Exporting to %1…").arg(path));
 }
 
 void OutputPanel::on_export_finished_(const QString& path)
 {
     export_button_->setEnabled(controller_->any_slot_populated());
-    status_label_->setText(tr("Saved %1").arg(path));
+    set_status_text_(tr("Saved %1").arg(path));
 }
 
 void OutputPanel::on_export_failed_(const QString& path, const QString& error)
 {
     export_button_->setEnabled(controller_->any_slot_populated());
-    status_label_->setText(tr("Export failed: %1").arg(error));
+    set_status_text_(tr("Export failed: %1").arg(error));
     QMessageBox::warning(this, tr("Export failed"),
                          tr("Could not save %1:\n\n%2").arg(path, error));
+}
+
+void OutputPanel::resizeEvent(QResizeEvent* event)
+{
+    QFrame::resizeEvent(event);
+    refresh_status_elide_();
+}
+
+void OutputPanel::set_status_text_(const QString& text)
+{
+    status_full_text_ = text;
+    status_label_->setToolTip(text);
+    refresh_status_elide_();
+}
+
+void OutputPanel::refresh_status_elide_()
+{
+    if (!status_label_) {
+        return;
+    }
+    if (status_full_text_.isEmpty()) {
+        status_label_->setText(QString{});
+        return;
+    }
+    const int available = std::max(0, status_label_->width());
+    const QFontMetrics fm(status_label_->font());
+    status_label_->setText(fm.elidedText(status_full_text_, Qt::ElideMiddle, available));
 }
 
 } // namespace tcp::app

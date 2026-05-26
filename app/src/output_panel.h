@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QFrame>
+#include <QString>
 
 class QCheckBox;
 class QComboBox;
@@ -18,6 +19,9 @@ class OutputPanel : public QFrame
 
 public:
     explicit OutputPanel(JobController* controller, QWidget* parent = nullptr);
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
 
 private slots:
     void on_format_changed_(int combo_index);
@@ -37,8 +41,11 @@ private slots:
 private:
     void build_ui_();
     void apply_resize_mode_visibility_();
+    void set_status_text_(const QString& text);
+    void refresh_status_elide_();
 
     JobController* controller_ = nullptr;
+    QString status_full_text_;
 
     QComboBox* format_combo_ = nullptr;
     QComboBox* bit_depth_combo_ = nullptr;

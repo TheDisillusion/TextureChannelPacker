@@ -198,19 +198,32 @@ void PreviewWidget::initializeGL()
 
 void PreviewWidget::resizeGL(int w, int h)
 {
+    // QOpenGLWidget can transit through 0-sized states during fast resize
+    // on Windows. glViewport with zero dimensions is technically allowed but
+    // some drivers complain; skip until we have a real size.
+    if (w <= 0 || h <= 0) {
+        return;
+    }
     glViewport(0, 0, w, h);
 }
 
 void PreviewWidget::paintGL()
 {
+    // Always clear first, even if we bail out below — otherwise transient
+    // zero-size or pre-link frames leave whatever the FBO last held visible,
+    // which is what tearing during resize looks like.
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    if (width() <= 0 || height() <= 0) {
+        return;
+    }
+
     for (int i = 0; i < 4; ++i) {
         if (upload_pending_[i]) {
             upload_slot_(i);
             upload_pending_[i] = false;
         }
     }
-
-    glClear(GL_COLOR_BUFFER_BIT);
 
     if (!program_ || !program_->isLinked()) {
         return;

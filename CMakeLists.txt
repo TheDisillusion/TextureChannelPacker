@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(TextureChannelPacker
-    VERSION 0.3.1
+    VERSION 0.3.2
     DESCRIPTION "Native desktop tool for packing R/G/B/A channels of texture maps."
     LANGUAGES CXX
 )

@@ -105,6 +105,14 @@ SaveResult save(const Image& img, const std::filesystem::path& path, const SaveO
     const OIIO::TypeDesc tdesc = to_oiio_type(img.format());
     OIIO::ImageSpec spec(img.width(), img.height(), img.channels(), tdesc);
 
+    // OIIO's PNG and TGA writers assume the input buffer carries associated
+    // (premultiplied) alpha by default and divide RGB by A on write. Our pack
+    // pipeline emits straight alpha, so without this attribute RGB gets
+    // mangled whenever A != 1 (e.g. R=G=B=A=src.R collapses to R/A=1 in
+    // every non-zero-alpha pixel). Tell OIIO the buffer is already
+    // unassociated so it writes the bytes through unchanged.
+    spec.attribute("oiio:UnassociatedAlpha", 1);
+
     if (fmt == Format::PNG) {
         const int level = std::clamp(opts.png_compression_level, 0, 9);
         spec.attribute("png:compressionLevel", level);

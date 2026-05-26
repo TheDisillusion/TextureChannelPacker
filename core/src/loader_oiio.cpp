@@ -24,7 +24,15 @@ LoadResult load(const std::filesystem::path& path, const LoadOptions& opts)
 {
     LoadResult result;
 
-    auto in = OIIO::ImageInput::open(path.string());
+    // OIIO's PNG and TGA readers default to associating (premultiplying)
+    // alpha on read. We carry straight alpha through the pipeline — packing,
+    // previewing, and re-exporting all assume RGB and A are independent —
+    // so request unassociated alpha at open time. Without this, loading any
+    // 4-channel image where A != 1 silently mangles RGB.
+    OIIO::ImageSpec open_config;
+    open_config.attribute("oiio:UnassociatedAlpha", 1);
+
+    auto in = OIIO::ImageInput::open(path.string(), &open_config);
     if (!in) {
         result.error = OIIO::geterror();
         if (result.error.empty()) {

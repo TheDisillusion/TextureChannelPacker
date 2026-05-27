@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.24)
 
 project(TextureChannelPacker
-    VERSION 0.3.2
+    VERSION 0.4.0
     DESCRIPTION "Native desktop tool for packing R/G/B/A channels of texture maps."
     LANGUAGES CXX
 )
@@ -20,7 +20,13 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # Treat warnings as errors in our own code, not in third-party dependencies.
 if(MSVC)
-    add_compile_options(/W4 /permissive- /Zc:preprocessor /utf-8)
+    # /EHsc enables proper C++ exception unwinding semantics. Without it,
+    # throwing across translation units (e.g. nlohmann::json::parse hitting
+    # malformed input in the project loader) trips STATUS_STACK_BUFFER_OVERRUN
+    # because the stack-guard probes assume the standard EH model. Qt's
+    # qt_standard_project_setup adds /EHsc to the app target automatically;
+    # core and tests need it set globally.
+    add_compile_options(/EHsc /W4 /permissive- /Zc:preprocessor /utf-8)
     add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN _CRT_SECURE_NO_WARNINGS)
 endif()
 

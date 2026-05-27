@@ -78,6 +78,25 @@ downstream user is the Qt LGPLv3 notice (item 1).
 
 ------------------------------------------------------------------------------
 
+8. Inter (embedded UI font)
+   Copyright (c) The Inter Project Authors (https://github.com/rsms/inter).
+   Used under the SIL Open Font License, Version 1.1.
+
+   Full license text bundled at app/resources/fonts/Inter-LICENSE.txt.
+   Source: https://github.com/rsms/inter
+
+------------------------------------------------------------------------------
+
+9. JetBrains Mono (embedded monospace font)
+   Copyright (c) The JetBrains Mono Project Authors
+   (https://github.com/JetBrains/JetBrainsMono).
+   Used under the SIL Open Font License, Version 1.1.
+
+   Full license text bundled at app/resources/fonts/JetBrainsMono-LICENSE.txt.
+   Source: https://github.com/JetBrains/JetBrainsMono
+
+------------------------------------------------------------------------------
+
 Note for downstream users:
 
 You may redistribute Texture Channel Packer freely under the MIT License,

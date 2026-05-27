@@ -1,11 +1,13 @@
 #include "input_slot_widget.h"
 
+#include "channel_chip.h"
+#include "design_tokens.h"
 #include "job_controller.h"
+#include "segmented_control.h"
 
 #include "tcp/channel_ref.h"
 #include "tcp/image.h"
 
-#include <QComboBox>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
@@ -16,8 +18,13 @@
 #include <QLabel>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPaintEvent>
+#include <QPainter>
+#include <QPainterPath>
+#include <QPen>
 #include <QPixmap>
 #include <QSizePolicy>
+#include <QStyle>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -29,15 +36,11 @@ namespace tcp::app {
 
 namespace {
 
-constexpr std::array<const char*, output_channel_count> destination_names{"R", "G", "B", "A"};
-constexpr std::array<const char*, output_channel_count> destination_colors{
-    "#e85b5b", // R
-    "#5be877", // G
-    "#5b8be8", // B
-    "#cccccc"  // A
+constexpr std::array<QChar, output_channel_count> destination_letters{
+    QChar('R'), QChar('G'), QChar('B'), QChar('A')
 };
 
-constexpr int thumbnail_extent = 56;
+constexpr int thumbnail_extent = 48;
 
 // Build an RGBA8 thumbnail directly from the in-memory tcp::Image. Used as a
 // fallback when Qt's QImage(path) returns null — which happens with 16-bit
@@ -90,6 +93,107 @@ QImage thumbnail_from_tcp_image(const tcp::Image& img, int max_extent)
 
 } // namespace
 
+// ─────────────────────────────────────────────────────────────────────────
+// ThumbnailWell
+// ─────────────────────────────────────────────────────────────────────────
+
+ThumbnailWell::ThumbnailWell(QWidget* parent)
+    : QLabel(parent)
+{
+    setObjectName(QStringLiteral("Thumbnail"));
+    setFixedSize(thumbnail_extent, thumbnail_extent);
+    setAlignment(Qt::AlignCenter);
+    set_empty(true);
+}
+
+void ThumbnailWell::set_empty(bool empty)
+{
+    if (empty_ == empty) {
+        return;
+    }
+    empty_ = empty;
+    setProperty("empty", empty_);
+    style()->unpolish(this);
+    style()->polish(this);
+    if (empty_) {
+        setPixmap(QPixmap{});
+    }
+    update();
+}
+
+void ThumbnailWell::paintEvent(QPaintEvent* event)
+{
+    if (!empty_) {
+        // Populated: defer to QLabel's pixmap rendering, but clip into a
+        // rounded rect so the corners match the design's 8px radius.
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        QPainterPath path;
+        path.addRoundedRect(QRectF(0.5, 0.5, width() - 1.0, height() - 1.0), 8.0, 8.0);
+        p.setClipPath(path);
+        QLabel::paintEvent(event);
+        return;
+    }
+
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing, true);
+
+    // Diagonal stripe pattern (very subtle).
+    const QRectF inside(0.5, 0.5, width() - 1.0, height() - 1.0);
+    QPainterPath clip;
+    clip.addRoundedRect(inside, 8.0, 8.0);
+    p.setClipPath(clip);
+
+    QColor stripe_a(255, 255, 255, 8);
+    QColor stripe_b(255, 255, 255, 3);
+    const qreal step = 6.0;
+    p.setPen(Qt::NoPen);
+    for (qreal d = -height(); d < width() + height(); d += step * 2.0) {
+        QPainterPath stripe;
+        stripe.moveTo(d, 0);
+        stripe.lineTo(d + step, 0);
+        stripe.lineTo(d + step + height(), height());
+        stripe.lineTo(d + height(), height());
+        stripe.closeSubpath();
+        p.fillPath(stripe, stripe_a);
+        QPainterPath stripe2;
+        stripe2.moveTo(d + step, 0);
+        stripe2.lineTo(d + step * 2.0, 0);
+        stripe2.lineTo(d + step * 2.0 + height(), height());
+        stripe2.lineTo(d + step + height(), height());
+        stripe2.closeSubpath();
+        p.fillPath(stripe2, stripe_b);
+    }
+
+    p.setClipping(false);
+
+    // Dashed border.
+    QPen border(QColor(255, 255, 255, 38));
+    border.setStyle(Qt::DashLine);
+    border.setWidthF(1.0);
+    border.setDashPattern({3.0, 3.0});
+    p.setPen(border);
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(inside, 8.0, 8.0);
+
+    // Down-arrow glyph centered.
+    QPen glyph(QColor(255, 255, 255, 90));
+    glyph.setWidthF(1.2);
+    glyph.setCapStyle(Qt::RoundCap);
+    glyph.setJoinStyle(Qt::RoundJoin);
+    p.setPen(glyph);
+    const qreal cx = width() / 2.0;
+    const qreal cy = height() / 2.0;
+    p.drawLine(QPointF(cx, cy - 5.0), QPointF(cx, cy + 3.0));
+    p.drawLine(QPointF(cx - 3.0, cy), QPointF(cx, cy + 3.0));
+    p.drawLine(QPointF(cx + 3.0, cy), QPointF(cx, cy + 3.0));
+    p.drawLine(QPointF(cx - 5.0, cy + 6.0), QPointF(cx + 5.0, cy + 6.0));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// InputSlotWidget
+// ─────────────────────────────────────────────────────────────────────────
+
 InputSlotWidget::InputSlotWidget(int slot_index, JobController* controller, QWidget* parent)
     : QFrame(parent),
       slot_index_(slot_index),
@@ -113,61 +217,55 @@ InputSlotWidget::InputSlotWidget(int slot_index, JobController* controller, QWid
 
 void InputSlotWidget::build_ui_()
 {
-    destination_badge_ = new QLabel(QString::fromUtf8(destination_names[slot_index_]), this);
-    destination_badge_->setObjectName(QStringLiteral("DestinationBadge"));
-    destination_badge_->setAlignment(Qt::AlignCenter);
-    destination_badge_->setFixedSize(28, 28);
-    destination_badge_->setStyleSheet(
-        QStringLiteral("QLabel#DestinationBadge { background-color: %1; color: #1a1a1a; "
-                       "border-radius: 14px; font-weight: 700; }")
-            .arg(QString::fromUtf8(destination_colors[slot_index_])));
+    destination_chip_ = new ChannelChip(destination_letters[slot_index_], 24, true, this);
 
-    thumbnail_ = new QLabel(this);
-    thumbnail_->setObjectName(QStringLiteral("Thumbnail"));
-    thumbnail_->setFixedSize(thumbnail_extent, thumbnail_extent);
-    thumbnail_->setAlignment(Qt::AlignCenter);
-    thumbnail_->setText(QStringLiteral("Drop"));
+    thumbnail_ = new ThumbnailWell(this);
 
-    filename_label_ = new QLabel(QStringLiteral("— empty —"), this);
+    filename_label_ = new QLabel(QStringLiteral("Drop texture or click to browse"), this);
     filename_label_->setObjectName(QStringLiteral("FilenameLabel"));
+    filename_label_->setProperty("empty", true);
     filename_label_->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    filename_label_->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
 
-    status_label_ = new QLabel(QStringLiteral("Drag a texture here or click to browse"), this);
-    status_label_->setObjectName(QStringLiteral("StatusLabel"));
+    from_label_ = new QLabel(QStringLiteral("FROM"), this);
+    from_label_->setObjectName(QStringLiteral("FromLabel"));
 
-    source_channel_combo_ = new QComboBox(this);
-    source_channel_combo_->setObjectName(QStringLiteral("SourceChannelCombo"));
-    source_channel_combo_->addItem(QStringLiteral("Source: R"), static_cast<int>(SourceChannel::R));
-    source_channel_combo_->addItem(QStringLiteral("Source: G"), static_cast<int>(SourceChannel::G));
-    source_channel_combo_->addItem(QStringLiteral("Source: B"), static_cast<int>(SourceChannel::B));
-    source_channel_combo_->addItem(QStringLiteral("Source: A"), static_cast<int>(SourceChannel::A));
-    source_channel_combo_->addItem(QStringLiteral("Source: Luminance"),
-                                   static_cast<int>(SourceChannel::Luminance));
+    source_picker_ = new SegmentedControl(this);
+    source_picker_->set_options(QStringList{"R", "G", "B", "A", "L"});
+    source_picker_->set_channel_tint(true);
+    source_picker_->set_cell_height(20);
+    source_picker_->set_cell_min_width(22);
     // Default selection mirrors the identity channel map set up in JobController.
-    source_channel_combo_->setCurrentIndex(slot_index_);
-    connect(source_channel_combo_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-            &InputSlotWidget::on_source_channel_changed_);
+    source_picker_->set_value(QString(destination_letters[slot_index_]));
+    connect(source_picker_, &SegmentedControl::selectionChanged, this,
+            &InputSlotWidget::on_source_segment_changed_);
 
     clear_button_ = new QToolButton(this);
     clear_button_->setObjectName(QStringLiteral("ClearButton"));
-    clear_button_->setText(QStringLiteral("×")); // multiplication sign
+    clear_button_->setText(QStringLiteral("×"));
     clear_button_->setToolTip(tr("Clear this slot"));
     clear_button_->setEnabled(false);
     connect(clear_button_, &QToolButton::clicked, this, &InputSlotWidget::on_clear_);
 
-    auto* details_layout = new QVBoxLayout;
-    details_layout->setSpacing(2);
-    details_layout->setContentsMargins(0, 0, 0, 0);
-    details_layout->addWidget(filename_label_);
-    details_layout->addWidget(status_label_);
-    details_layout->addWidget(source_channel_combo_);
+    auto* from_row = new QHBoxLayout;
+    from_row->setContentsMargins(0, 0, 0, 0);
+    from_row->setSpacing(8);
+    from_row->addWidget(from_label_, 0, Qt::AlignVCenter);
+    from_row->addWidget(source_picker_, 0, Qt::AlignVCenter);
+    from_row->addStretch(1);
+
+    auto* meta = new QVBoxLayout;
+    meta->setSpacing(6);
+    meta->setContentsMargins(0, 0, 0, 0);
+    meta->addWidget(filename_label_);
+    meta->addLayout(from_row);
 
     auto* main_layout = new QHBoxLayout(this);
-    main_layout->setContentsMargins(10, 8, 10, 8);
-    main_layout->setSpacing(10);
-    main_layout->addWidget(destination_badge_, 0, Qt::AlignTop);
-    main_layout->addWidget(thumbnail_, 0, Qt::AlignTop);
-    main_layout->addLayout(details_layout, 1);
+    main_layout->setContentsMargins(12, 12, 12, 12);
+    main_layout->setSpacing(12);
+    main_layout->addWidget(destination_chip_, 0, Qt::AlignVCenter);
+    main_layout->addWidget(thumbnail_, 0, Qt::AlignVCenter);
+    main_layout->addLayout(meta, 1);
     main_layout->addWidget(clear_button_, 0, Qt::AlignTop);
 }
 
@@ -179,36 +277,41 @@ void InputSlotWidget::refresh_state_for_(int slot)
     const auto& s = controller_->job().inputs[slot];
     const bool populated = s.populated();
     clear_button_->setEnabled(populated);
+
     if (populated) {
         const auto& ref = controller_->job().channel_map[slot_index_];
         if (ref.slot_index == slot_index_) {
-            source_channel_combo_->setCurrentIndex(static_cast<int>(ref.source));
+            source_picker_->set_value(
+                QString::fromUtf8(std::string(to_string(ref.source)).c_str()));
         }
-        filename_label_->setText(
-            QFileInfo(QString::fromStdU16String(s.path.u16string())).fileName());
+        const QString file = QFileInfo(QString::fromStdU16String(s.path.u16string())).fileName();
+        filename_label_->setText(file);
+        filename_label_->setProperty("empty", false);
+        style()->unpolish(filename_label_);
+        style()->polish(filename_label_);
+
         const auto& img = *s.image;
-        set_status_text_(QStringLiteral("%1 × %2 · %3 ch · %4")
-                             .arg(img.width())
-                             .arg(img.height())
-                             .arg(img.channels())
-                             .arg(QString::fromUtf8(std::string(to_string(img.format())).c_str())));
+        set_status_tooltip_(QStringLiteral("%1 × %2 · %3 ch · %4")
+                                .arg(img.width())
+                                .arg(img.height())
+                                .arg(img.channels())
+                                .arg(QString::fromUtf8(
+                                    std::string(to_string(img.format())).c_str())));
         set_thumbnail_from_(QString::fromStdU16String(s.path.u16string()));
     } else {
-        filename_label_->setText(QStringLiteral("— empty —"));
-        set_status_text_(QStringLiteral("Drag a texture here or click to browse"));
-        thumbnail_->setPixmap(QPixmap{});
-        thumbnail_->setText(QStringLiteral("Drop"));
+        filename_label_->setText(QStringLiteral("Drop texture or click to browse"));
+        filename_label_->setProperty("empty", true);
+        style()->unpolish(filename_label_);
+        style()->polish(filename_label_);
+        set_status_tooltip_(tr("Drag a texture here or click to browse"));
+        thumbnail_->set_empty(true);
     }
 }
 
 void InputSlotWidget::set_thumbnail_from_(const QString& path)
 {
-    // Try Qt's image decoder first — fast for common formats.
     QImage img(path);
 
-    // Fallback: build the thumbnail from the tcp::Image OIIO already
-    // decoded. Covers 16-bit / float PNG, EXR, TGA, and any case where
-    // Qt's imageformats plugins aren't doing the job.
     if (img.isNull()) {
         const auto& slot = controller_->job().inputs[slot_index_];
         if (slot.populated()) {
@@ -217,39 +320,42 @@ void InputSlotWidget::set_thumbnail_from_(const QString& path)
     }
 
     if (img.isNull()) {
-        thumbnail_->setPixmap(QPixmap{});
-        thumbnail_->setText(QStringLiteral("?"));
+        thumbnail_->set_empty(true);
         return;
     }
 
     // Qt's image plugins may return formats other than 32-bit ARGB
     // (Format_Mono for 1-bit PNGs, Format_Grayscale8, Format_Indexed8, etc.).
-    // Some downstream Win32 conversions Qt does internally for pixmap-backed
-    // QLabels misbehave on the less common formats. Normalize here so the
-    // pixmap is guaranteed to be in a well-supported state regardless of
-    // what the source file looked like.
+    // Normalize so the pixmap is guaranteed to be in a well-supported state
+    // regardless of what the source file looked like.
     QImage normalized = img.convertToFormat(QImage::Format_ARGB32_Premultiplied);
     if (normalized.isNull()) {
-        thumbnail_->setPixmap(QPixmap{});
-        thumbnail_->setText(QStringLiteral("?"));
+        thumbnail_->set_empty(true);
         return;
     }
 
     const QImage scaled = normalized.scaled(thumbnail_extent, thumbnail_extent,
-                                            Qt::KeepAspectRatio, Qt::SmoothTransformation);
+                                            Qt::KeepAspectRatioByExpanding,
+                                            Qt::SmoothTransformation);
     if (scaled.isNull()) {
-        thumbnail_->setPixmap(QPixmap{});
-        thumbnail_->setText(QStringLiteral("?"));
+        thumbnail_->set_empty(true);
         return;
     }
 
-    thumbnail_->setPixmap(QPixmap::fromImage(scaled));
-    thumbnail_->setText(QString{});
+    // Crop to thumbnail extent (center) so the rounded corners render
+    // edge-to-edge.
+    const int crop_x = std::max(0, (scaled.width() - thumbnail_extent) / 2);
+    const int crop_y = std::max(0, (scaled.height() - thumbnail_extent) / 2);
+    const QImage cropped = scaled.copy(crop_x, crop_y, thumbnail_extent, thumbnail_extent);
+
+    thumbnail_->set_empty(false);
+    thumbnail_->setPixmap(QPixmap::fromImage(cropped));
 }
 
-void InputSlotWidget::set_status_text_(const QString& text)
+void InputSlotWidget::set_status_tooltip_(const QString& text)
 {
-    status_label_->setText(text);
+    thumbnail_->setToolTip(text);
+    filename_label_->setToolTip(text);
 }
 
 void InputSlotWidget::dragEnterEvent(QDragEnterEvent* event)
@@ -292,8 +398,7 @@ void InputSlotWidget::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::LeftButton) {
         const QPoint pos = event->pos();
-        if (thumbnail_->geometry().contains(pos) || filename_label_->geometry().contains(pos)
-            || status_label_->geometry().contains(pos)) {
+        if (thumbnail_->geometry().contains(pos) || filename_label_->geometry().contains(pos)) {
             on_browse_();
             return;
         }
@@ -318,13 +423,13 @@ void InputSlotWidget::on_clear_()
     controller_->clear_slot(slot_index_);
 }
 
-void InputSlotWidget::on_source_channel_changed_(int combo_index)
+void InputSlotWidget::on_source_segment_changed_(const QString& value)
 {
-    if (combo_index < 0) {
-        return;
-    }
-    const SourceChannel ch = static_cast<SourceChannel>(
-        source_channel_combo_->itemData(combo_index).toInt());
+    SourceChannel ch = SourceChannel::R;
+    if (value == QStringLiteral("G")) ch = SourceChannel::G;
+    else if (value == QStringLiteral("B")) ch = SourceChannel::B;
+    else if (value == QStringLiteral("A")) ch = SourceChannel::A;
+    else if (value == QStringLiteral("L")) ch = SourceChannel::Luminance;
     controller_->set_slot_source_channel(slot_index_, ch);
 }
 
@@ -333,7 +438,7 @@ void InputSlotWidget::on_slot_loading_(int slot, const QString& path)
     if (slot != slot_index_) {
         return;
     }
-    set_status_text_(tr("Loading %1…").arg(QFileInfo(path).fileName()));
+    set_status_tooltip_(tr("Loading %1…").arg(QFileInfo(path).fileName()));
 }
 
 void InputSlotWidget::on_slot_loaded_(int slot)
@@ -346,7 +451,7 @@ void InputSlotWidget::on_slot_load_failed_(int slot, const QString& error)
     if (slot != slot_index_) {
         return;
     }
-    set_status_text_(tr("Load failed: %1").arg(error));
+    set_status_tooltip_(tr("Load failed: %1").arg(error));
 }
 
 void InputSlotWidget::on_slot_cleared_(int slot)

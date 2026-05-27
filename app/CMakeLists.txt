@@ -24,10 +24,28 @@ set(TCP_APP_SOURCES
     src/preview_widget.h
     src/preview_panel.cpp
     src/preview_panel.h
+    src/channel_chip.cpp
+    src/channel_chip.h
+    src/segmented_control.cpp
+    src/segmented_control.h
+    src/design_tokens.h
 )
+
+# Embed a Windows .rc so Explorer/taskbar/Alt-Tab show the app icon on the
+# executable itself. The .rc references TextureChannelPacker.ico via
+# relative path, so MSVC's resource compiler must run with the resources/icon
+# directory available — qt_add_executable adds it to the build directly when
+# the file is in the source list.
+set(TCP_APP_PLATFORM_SOURCES "")
+if(WIN32)
+    list(APPEND TCP_APP_PLATFORM_SOURCES
+        resources/icon/TextureChannelPacker.rc
+    )
+endif()
 
 qt_add_executable(tcp_app
     ${TCP_APP_SOURCES}
+    ${TCP_APP_PLATFORM_SOURCES}
 )
 
 qt_add_resources(tcp_app "tcp_resources"
@@ -35,6 +53,10 @@ qt_add_resources(tcp_app "tcp_resources"
     BASE   ${CMAKE_CURRENT_SOURCE_DIR}/resources
     FILES
         resources/theme/dark.qss
+        resources/theme/check.svg
+        resources/icon/TextureChannelPacker.ico
+        resources/fonts/InterVariable.ttf
+        resources/fonts/JetBrainsMono.ttf
         resources/shaders/preview.vert
         resources/shaders/preview.frag
 )

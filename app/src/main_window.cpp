@@ -1,5 +1,6 @@
 #include "main_window.h"
 
+#include "design_tokens.h"
 #include "input_slot_widget.h"
 #include "job_controller.h"
 #include "output_panel.h"
@@ -17,11 +18,16 @@
 #include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QKeySequence>
 #include <QLabel>
+#include <QPainter>
+#include <QPen>
+#include <QPixmap>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -32,12 +38,74 @@
 
 namespace tcp::app {
 
+namespace {
+
+// The two button glyphs are painted in C++ at the target pixel size
+// rather than loaded from .svg, because Qt's SVG icon engine requires
+// linking Qt6Svg (not pulled in by our vcpkg manifest) and Qt's qsvg
+// image-format plugin isn't deployed either. The geometry is trivial,
+// so doing it in QPainter keeps the dependency footprint flat.
+
+QPixmap make_plus_glyph(int size, const QColor& stroke)
+{
+    const int dpr = 2; // render at 2x for crisp scaling on hi-dpi displays
+    QPixmap pm(size * dpr, size * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(stroke);
+    pen.setWidthF(1.4);
+    pen.setCapStyle(Qt::RoundCap);
+    p.setPen(pen);
+    const qreal s = size;
+    p.drawLine(QPointF(s / 2.0, s * 0.18),
+               QPointF(s / 2.0, s * 0.82));
+    p.drawLine(QPointF(s * 0.18, s / 2.0),
+               QPointF(s * 0.82, s / 2.0));
+    return pm;
+}
+
+QPixmap make_grid_glyph(int size, const QColor& stroke)
+{
+    const int dpr = 2;
+    QPixmap pm(size * dpr, size * dpr);
+    pm.setDevicePixelRatio(dpr);
+    pm.fill(Qt::transparent);
+    QPainter p(&pm);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    QPen pen(stroke);
+    pen.setWidthF(1.1);
+    pen.setJoinStyle(Qt::RoundJoin);
+    p.setPen(pen);
+    p.setBrush(Qt::NoBrush);
+    const qreal a = size * 0.18;
+    const qreal b = size * 0.82;
+    const qreal c = size / 2.0;
+    // Outer square.
+    p.drawRect(QRectF(a, a, b - a, b - a));
+    // Horizontal + vertical interior strokes.
+    p.drawLine(QPointF(a, c), QPointF(b, c));
+    p.drawLine(QPointF(c, a), QPointF(c, b));
+    return pm;
+}
+
+QIcon plus_icon(int size, const QColor& stroke)  { return QIcon(make_plus_glyph(size, stroke)); }
+QIcon grid_icon(int size, const QColor& stroke)  { return QIcon(make_grid_glyph(size, stroke)); }
+
+} // namespace
+
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent)
 {
     setWindowTitle(QStringLiteral("Texture Channel Packer"));
-    resize(1280, 800);
-    setMinimumSize(960, 640);
+    resize(1320, 820);
+    setMinimumSize(1040, 660);
+    // Force a fully opaque background — Windows 11's QMainWindow defaults
+    // can otherwise let Mica/acrylic pass desktop colors through and tint
+    // the canvas a brighter gray than the design tokens specify.
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    setAutoFillBackground(true);
 
     controller_ = new JobController(this);
 
@@ -85,13 +153,31 @@ void MainWindow::build_central_widget_()
     inputs_frame->setObjectName(QStringLiteral("InputsPanel"));
     inputs_frame->setFrameShape(QFrame::StyledPanel);
 
-    auto* inputs_title = new QLabel(QStringLiteral("Inputs"), inputs_frame);
-    inputs_title->setObjectName(QStringLiteral("PanelTitle"));
+    auto* inputs_header = new QFrame(inputs_frame);
+    inputs_header->setAttribute(Qt::WA_TranslucentBackground, true);
+    {
+        auto* h = new QHBoxLayout(inputs_header);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(8);
+        auto* title = new QLabel(QStringLiteral("INPUTS"), inputs_header);
+        title->setObjectName(QStringLiteral("SectionTitle"));
+        auto* counter = new QLabel(QStringLiteral("0 of 4"), inputs_header);
+        counter->setObjectName(QStringLiteral("MonoCaption"));
+        counter->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+        h->addWidget(title);
+        h->addStretch(1);
+        h->addWidget(counter);
+
+        connect(controller_, &JobController::populated_slots_changed, counter,
+                [counter](int populated) {
+                    counter->setText(QStringLiteral("%1 of 4").arg(populated));
+                });
+    }
 
     auto* inputs_layout = new QVBoxLayout(inputs_frame);
     inputs_layout->setContentsMargins(14, 14, 14, 14);
     inputs_layout->setSpacing(10);
-    inputs_layout->addWidget(inputs_title);
+    inputs_layout->addWidget(inputs_header);
 
     for (int i = 0; i < slot_count; ++i) {
         auto* slot = new InputSlotWidget(i, controller_, inputs_frame);
@@ -100,21 +186,95 @@ void MainWindow::build_central_widget_()
     }
     inputs_layout->addStretch(1);
 
+    // Footer: Add input + Presets buttons.
+    auto* footer = new QFrame(inputs_frame);
+    footer->setAttribute(Qt::WA_TranslucentBackground, true);
+    {
+        auto* h = new QHBoxLayout(footer);
+        h->setContentsMargins(0, 0, 0, 0);
+        h->setSpacing(8);
+
+        // Buttons use painted vector glyphs rather than unicode characters —
+        // the bundled Inter renders literal "+" / "⊞" with weights and metrics
+        // that don't match the design's thin vector marks.
+        const QColor glyph_color(255, 255, 255, 215);
+        auto* add_button = new QPushButton(QStringLiteral("Add input"), footer);
+        add_button->setObjectName(QStringLiteral("SecondaryButton"));
+        add_button->setIcon(plus_icon(12, glyph_color));
+        add_button->setIconSize(QSize(12, 12));
+        add_button->setCursor(Qt::PointingHandCursor);
+        connect(add_button, &QPushButton::clicked, this, [this] {
+            // Find the first empty slot and prompt for a file.
+            int target = -1;
+            for (int i = 0; i < slot_count; ++i) {
+                if (!controller_->job().inputs[i].populated()) {
+                    target = i;
+                    break;
+                }
+            }
+            if (target < 0) {
+                show_toast_(tr("All four slots are already filled — drop on a slot to replace."));
+                return;
+            }
+            const QString filter
+                = tr("Textures (*.png *.tga *.jpg *.jpeg *.exr *.tif *.tiff);;All files (*)");
+            const QString chosen
+                = QFileDialog::getOpenFileName(this, tr("Open texture"), QString{}, filter);
+            if (chosen.isEmpty()) {
+                return;
+            }
+            controller_->load_slot(target, chosen);
+        });
+
+        auto* presets_button = new QPushButton(QStringLiteral("Presets"), footer);
+        presets_button->setObjectName(QStringLiteral("SecondaryButton"));
+        presets_button->setIcon(grid_icon(12, glyph_color));
+        presets_button->setIconSize(QSize(12, 12));
+        presets_button->setCursor(Qt::PointingHandCursor);
+        presets_button->setToolTip(tr("Preset packings (coming soon)"));
+        connect(presets_button, &QPushButton::clicked, this, [this] {
+            show_toast_(tr("Presets are not wired up yet."));
+        });
+
+        h->addWidget(add_button, 1);
+        h->addWidget(presets_button, 0);
+    }
+    inputs_layout->addWidget(footer);
+
     auto* preview = new PreviewPanel(controller_, this);
 
     output_panel_ = new OutputPanel(controller_, this);
 
     auto* splitter = new QSplitter(Qt::Horizontal, this);
     splitter->setObjectName(QStringLiteral("MainSplitter"));
+    splitter->setHandleWidth(12);
+    splitter->setChildrenCollapsible(false);
     splitter->addWidget(inputs_frame);
     splitter->addWidget(preview);
     splitter->addWidget(output_panel_);
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
     splitter->setStretchFactor(2, 0);
-    splitter->setSizes({320, 640, 280});
+    splitter->setSizes({340, 680, 300});
 
-    setCentralWidget(splitter);
+    inputs_frame->setMinimumWidth(320);
+    output_panel_->setMinimumWidth(280);
+
+    // Central area must be opaque and explicitly colored so the dark
+    // background reads consistently — on Windows 11 a translucent central
+    // widget leaks the desktop through any QMainWindow Mica/acrylic and
+    // washes the canvas to a brighter mid-gray.
+    auto* central = new QFrame(this);
+    central->setObjectName(QStringLiteral("CentralArea"));
+    central->setAutoFillBackground(true);
+    central->setStyleSheet(QStringLiteral(
+        "QFrame#CentralArea { background-color: #06070a; }"));
+    auto* central_layout = new QHBoxLayout(central);
+    central_layout->setContentsMargins(12, 12, 12, 12);
+    central_layout->setSpacing(0);
+    central_layout->addWidget(splitter);
+
+    setCentralWidget(central);
 }
 
 void MainWindow::build_menus_()
@@ -345,24 +505,41 @@ void MainWindow::closeEvent(QCloseEvent* event)
 void MainWindow::wire_status_bar_()
 {
     auto* sb = statusBar();
-    auto* populated_label = new QLabel(QStringLiteral("0 / 4 inputs"), sb);
-    auto* target_label = new QLabel(QStringLiteral("target —"), sb);
+    // QStatusBar honors padding on itself but children added via addWidget
+    // are flush with the bar's left/right edges. Pad them in via the
+    // layout's contents margins so the mono text doesn't crowd the window
+    // frame.
+    sb->setContentsMargins(14, 0, 14, 0);
+    sb->setSizeGripEnabled(false);
+
+    auto* populated_label = new QLabel(QStringLiteral("0 / 4 inputs · target ARGB"), sb);
+    auto* size_label = new QLabel(QStringLiteral("—"), sb);
+    auto* srgb_label = new QLabel(QStringLiteral("sRGB"), sb);
+    auto* ready_dot = new QLabel(QStringLiteral("●"), sb);
+    ready_dot->setObjectName(QStringLiteral("ReadyDot"));
+    auto* ready_text = new QLabel(QStringLiteral("ready"), sb);
+
     toast_label_ = new QLabel(QString{}, sb);
     toast_label_->setObjectName(QStringLiteral("Toast"));
+
     sb->addWidget(populated_label);
     sb->addWidget(toast_label_, 1);
-    sb->addPermanentWidget(target_label);
+    sb->addPermanentWidget(srgb_label);
+    sb->addPermanentWidget(size_label);
+    sb->addPermanentWidget(ready_dot);
+    sb->addPermanentWidget(ready_text);
 
     connect(controller_, &JobController::populated_slots_changed, populated_label,
             [populated_label](int populated) {
-                populated_label->setText(QStringLiteral("%1 / 4 inputs").arg(populated));
+                populated_label->setText(
+                    QStringLiteral("%1 / 4 inputs · target ARGB").arg(populated));
             });
-    connect(controller_, &JobController::target_size_changed, target_label,
-            [target_label](int w, int h) {
+    connect(controller_, &JobController::target_size_changed, size_label,
+            [size_label](int w, int h) {
                 if (w <= 0 || h <= 0) {
-                    target_label->setText(QStringLiteral("target —"));
+                    size_label->setText(QStringLiteral("—"));
                 } else {
-                    target_label->setText(QStringLiteral("target %1×%2").arg(w).arg(h));
+                    size_label->setText(QStringLiteral("%1 × %2").arg(w).arg(h));
                 }
             });
 }

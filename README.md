@@ -1,5 +1,7 @@
 # Texture Channel Packer
 
+![Texture Channel Packer](docs/preview.png)
+
 A small native desktop tool for packing R/G/B/A channels of texture maps —
 AO, roughness, metallic, normal, height, whatever — into a single output
 without firing up Photoshop or Substance Designer for a thirty-second task.

@@ -4,7 +4,7 @@ namespace tcp {
 
 std::string_view version_string() noexcept
 {
-    return "0.3.2";
+    return "0.4.0";
 }
 
 } // namespace tcp

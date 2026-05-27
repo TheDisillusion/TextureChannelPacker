@@ -1,0 +1,4 @@
+// Windows resource script — embeds the application icon into the .exe so
+// Explorer, the taskbar, and Alt-Tab show the branded icon. IDI_ICON1 is
+// the conventional first-icon identifier Windows picks up automatically.
+IDI_ICON1 ICON "TextureChannelPacker.ico"

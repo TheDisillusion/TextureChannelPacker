@@ -1,240 +1,525 @@
 /*
- * Texture Channel Packer — dark theme
- * Palette: bg #1e1e1e · panels #2d2d2d · accent #0078d4 · text #e6e6e6
+ * Texture Channel Packer — dark redesign
+ *
+ * Hairline-bordered cards, soft channel-tinted dots and pills, a single
+ * accent green used only on the primary Export action. All custom painted
+ * widgets (ChannelChip, SegmentedControl) handle their own surfaces; this
+ * stylesheet covers Qt's stock widgets and the structural frames.
+ *
+ * Token palette (kept in sync with app/src/design_tokens.h):
+ *   bg            #06070a
+ *   panel         #121317   (Inputs column is transparent — only Preview/Output panels use this)
+ *   panel-hi      #16181c
+ *   sunken        #0a0b0e
+ *   raised        #26282c
+ *   hairline      rgba(255,255,255,0.06)
+ *   hairlineStrong rgba(255,255,255,0.10)
+ *   text          rgba(255,255,255,0.92)
+ *   text-dim      rgba(255,255,255,0.55)
+ *   text-mute     rgba(255,255,255,0.35)
+ *   accent        #7CC95F
+ *
+ * Note on fonts: the UI font family is set globally via QApplication::setFont
+ * in main.cpp (Inter -> Segoe UI -> Arial). QSS rules deliberately do NOT
+ * re-specify "Inter" here because on Windows boxes that have only an italic
+ * variant installed, Qt's QSS font matching will pick that variant up and
+ * render every styled label in italics. By leaving font-family off the UI
+ * rules and instead inheriting from the application font, the global
+ * setFamilies() fallback list resolves the family correctly. Mono captions
+ * still pin "JetBrains Mono" -> Consolas explicitly because they need a
+ * different family from the UI font.
  */
 
+/* -----------------------------------------------------------------------
+ * Base
+ * -------------------------------------------------------------------- */
 QWidget {
-    background-color: #1e1e1e;
-    color: #e6e6e6;
-    font-family: "Segoe UI", "Inter", Arial, sans-serif;
-    font-size: 13px;
+    background-color: #06070a;
+    color: rgba(255, 255, 255, 235);
+    font-style: normal;
+    font-size: 12px;
 }
 
 QMainWindow,
 QDialog {
-    background-color: #1e1e1e;
+    background-color: #06070a;
 }
 
+QToolTip {
+    background-color: #26282c;
+    color: rgba(255, 255, 255, 235);
+    border: 1px solid rgba(255, 255, 255, 25);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-style: normal;
+}
+
+/* -----------------------------------------------------------------------
+ * Menu bar & menus
+ * -------------------------------------------------------------------- */
 QMenuBar {
-    background-color: #1e1e1e;
-    border-bottom: 1px solid #303030;
-    padding: 2px 4px;
+    background-color: #06070a;
+    border-bottom: 1px solid rgba(255, 255, 255, 15);
+    padding: 2px 6px;
+    color: rgba(255, 255, 255, 140);
+    font-style: normal;
 }
 QMenuBar::item {
     padding: 4px 10px;
     background: transparent;
+    color: rgba(255, 255, 255, 180);
+    font-style: normal;
 }
 QMenuBar::item:selected {
-    background: #2d2d2d;
-    color: #ffffff;
-}
-QMenu {
-    background-color: #252525;
-    border: 1px solid #3a3a3a;
-}
-QMenu::item:selected {
-    background: #0078d4;
-    color: #ffffff;
-}
-
-QStatusBar {
-    background-color: #181818;
-    color: #a0a0a0;
-    border-top: 1px solid #303030;
-}
-QStatusBar QLabel {
-    color: #a0a0a0;
-    background: transparent;
-}
-QStatusBar QLabel#Toast {
-    color: #5be877;
-    font-weight: 500;
-}
-
-QFrame#InputsPanel,
-QFrame#OutputPanel,
-QFrame#PreviewPlaceholder {
-    background-color: #252525;
-    border: 1px solid #333333;
+    background-color: #26282c;
+    color: rgba(255, 255, 255, 245);
     border-radius: 4px;
 }
 
-QLabel#PanelTitle {
+QMenu {
+    background-color: #26282c;
+    border: 1px solid rgba(255, 255, 255, 25);
+    border-radius: 8px;
+    padding: 4px;
+    font-style: normal;
+}
+QMenu::item {
+    padding: 6px 14px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 220);
+    font-style: normal;
+}
+QMenu::item:selected {
+    background-color: rgba(255, 255, 255, 20);
     color: #ffffff;
-    font-size: 15px;
+}
+QMenu::separator {
+    height: 1px;
+    background: rgba(255, 255, 255, 15);
+    margin: 4px 6px;
+}
+
+/* -----------------------------------------------------------------------
+ * Status bar
+ * -------------------------------------------------------------------- */
+QStatusBar {
+    background-color: #0a0b0e;
+    color: rgba(255, 255, 255, 90);
+    border-top: 1px solid rgba(255, 255, 255, 15);
+    min-height: 26px;
+    padding: 0 12px;
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 11px;
+    font-style: normal;
+}
+QStatusBar::item {
+    border: none;
+}
+QStatusBar QLabel {
+    color: rgba(255, 255, 255, 140);
+    background: transparent;
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+}
+QStatusBar QLabel#Toast {
+    color: #7CC95F;
     font-weight: 600;
-    padding-bottom: 4px;
-    border-bottom: 1px solid #383838;
+}
+QLabel#ReadyDot {
+    color: #7CC95F;
+    font-size: 14px;
+    padding-right: 4px;
+    font-style: normal;
+}
+
+/* -----------------------------------------------------------------------
+ * Panels (cards)
+ *
+ * Only the Preview and Output columns get an enclosing card; the Inputs
+ * column is transparent and the four input slot cards float on the bg
+ * directly. Matches the design reference.
+ * -------------------------------------------------------------------- */
+QFrame#InputsPanel {
+    background: transparent;
+    border: none;
+}
+QFrame#OutputPanel,
+QFrame#PreviewPanel {
+    background-color: #121317;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 14px;
+}
+
+/* Section header — uppercase tight caps used inside each panel. */
+QLabel#SectionTitle {
+    color: rgba(255, 255, 255, 160);
+    font-size: 11px;
+    font-weight: 700;
+    font-style: normal;
+    letter-spacing: 1px;
+    background: transparent;
+    padding: 0;
+    border: none;
+}
+
+/* Field labels above each output control. */
+QLabel#FieldLabel {
+    color: rgba(255, 255, 255, 110);
+    font-size: 10px;
+    font-weight: 700;
+    font-style: normal;
+    letter-spacing: 0.8px;
     background: transparent;
 }
 
+/* Mono caption row beneath the preview surface. */
+QLabel#MonoCaption {
+    color: rgba(255, 255, 255, 110);
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    background: transparent;
+}
+
+/* Hairline divider used between Output sections. */
+QFrame#HairlineDivider {
+    background: rgba(255, 255, 255, 15);
+    max-height: 1px;
+    min-height: 1px;
+    border: none;
+}
+
+/* -----------------------------------------------------------------------
+ * Input slot card
+ * -------------------------------------------------------------------- */
 QFrame#InputSlot {
-    background-color: #2d2d2d;
-    border: 1px solid #3a3a3a;
-    border-radius: 6px;
+    background-color: #16181c;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 12px;
 }
 QFrame#InputSlot[dragOver="true"] {
-    background-color: #2d3548;
-    border: 1px dashed #0078d4;
+    border: 1px dashed #7CC95F;
+    background-color: #26282c;
 }
 
 QLabel#Thumbnail {
-    background-color: #1a1a1a;
-    border: 1px solid #404040;
-    border-radius: 4px;
-    color: #707070;
-    font-size: 11px;
+    background-color: #0a0b0e;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 90);
+    font-size: 10px;
+    font-style: normal;
+}
+QLabel#Thumbnail[empty="true"] {
+    border: 1px dashed rgba(255, 255, 255, 30);
+    background-color: transparent;
 }
 
 QLabel#FilenameLabel {
-    color: #e6e6e6;
+    color: rgba(255, 255, 255, 235);
+    font-size: 12px;
+    font-weight: 600;
+    font-style: normal;
     background: transparent;
+}
+QLabel#FilenameLabel[empty="true"] {
+    color: rgba(255, 255, 255, 110);
     font-weight: 500;
 }
 
-QLabel#StatusLabel {
-    color: #909090;
+QLabel#FromLabel {
+    color: rgba(255, 255, 255, 110);
+    font-size: 10px;
+    font-weight: 700;
+    font-style: normal;
+    letter-spacing: 0.6px;
     background: transparent;
-    font-size: 11px;
 }
 
-QLabel#TargetLabel {
-    color: #ffffff;
-    background: transparent;
-    font-size: 14px;
-    font-weight: 600;
-}
-
+/* -----------------------------------------------------------------------
+ * Combo boxes (Select)
+ * -------------------------------------------------------------------- */
 QComboBox {
-    background-color: #1f1f1f;
-    border: 1px solid #3a3a3a;
-    border-radius: 4px;
-    padding: 4px 8px;
+    background-color: #0a0b0e;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 8px;
+    padding: 6px 10px;
     min-height: 22px;
-    color: #e6e6e6;
+    color: rgba(255, 255, 255, 235);
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
 }
 QComboBox:hover {
-    border: 1px solid #505050;
+    border: 1px solid rgba(255, 255, 255, 25);
 }
 QComboBox:focus,
 QComboBox:on {
-    border: 1px solid #0078d4;
+    border: 1px solid rgba(255, 255, 255, 40);
+}
+QComboBox:disabled {
+    background-color: #0a0b0e;
+    color: rgba(255, 255, 255, 60);
 }
 QComboBox::drop-down {
-    width: 18px;
+    width: 20px;
     border: none;
+    background: transparent;
+}
+QComboBox::down-arrow {
+    width: 9px;
+    height: 9px;
 }
 QComboBox QAbstractItemView {
-    background-color: #252525;
-    border: 1px solid #3a3a3a;
-    selection-background-color: #0078d4;
+    background-color: #26282c;
+    border: 1px solid rgba(255, 255, 255, 25);
+    border-radius: 8px;
+    selection-background-color: rgba(255, 255, 255, 20);
     selection-color: #ffffff;
+    color: rgba(255, 255, 255, 220);
+    padding: 4px;
+    outline: 0;
+    font-style: normal;
+}
+QComboBox QAbstractItemView::item {
+    padding: 6px 10px;
+    border-radius: 4px;
+    min-height: 22px;
+}
+QComboBox QAbstractItemView::item:selected {
+    background-color: rgba(255, 255, 255, 20);
 }
 
+/* -----------------------------------------------------------------------
+ * Spin boxes (NumStep)
+ * -------------------------------------------------------------------- */
 QSpinBox {
-    background-color: #1f1f1f;
-    border: 1px solid #3a3a3a;
-    border-radius: 4px;
-    padding: 4px 6px;
-    color: #e6e6e6;
+    background-color: #0a0b0e;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 8px;
+    padding: 5px 6px 5px 10px;
+    color: rgba(255, 255, 255, 235);
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
     min-height: 22px;
 }
 QSpinBox:focus {
-    border: 1px solid #0078d4;
+    border: 1px solid rgba(255, 255, 255, 40);
 }
 QSpinBox:disabled {
-    background-color: #1a1a1a;
-    color: #555555;
+    background-color: #0a0b0e;
+    color: rgba(255, 255, 255, 60);
+}
+QSpinBox::up-button,
+QSpinBox::down-button {
+    background: transparent;
+    border: none;
+    width: 14px;
+}
+QSpinBox::up-arrow,
+QSpinBox::down-arrow {
+    width: 7px;
+    height: 5px;
 }
 
-QPushButton {
-    background-color: #303030;
-    border: 1px solid #404040;
+/* -----------------------------------------------------------------------
+ * Checkbox
+ * -------------------------------------------------------------------- */
+QCheckBox {
+    color: rgba(255, 255, 255, 140);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 500;
+    spacing: 7px;
+    background: transparent;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
     border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 25);
+    background-color: #0a0b0e;
+}
+QCheckBox::indicator:hover {
+    border: 1px solid rgba(255, 255, 255, 50);
+}
+QCheckBox::indicator:checked {
+    background-color: #7CC95F;
+    border: 1px solid #7CC95F;
+    image: url(:/tcp/theme/check.svg);
+}
+QCheckBox:disabled {
+    color: rgba(255, 255, 255, 60);
+}
+
+/* -----------------------------------------------------------------------
+ * Buttons
+ * -------------------------------------------------------------------- */
+QPushButton {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 8px;
     padding: 6px 14px;
-    color: #e6e6e6;
+    color: rgba(255, 255, 255, 235);
+    font-size: 11px;
+    font-style: normal;
+    font-weight: 600;
 }
 QPushButton:hover {
-    background-color: #3a3a3a;
-    border: 1px solid #505050;
+    background-color: #26282c;
+    border: 1px solid rgba(255, 255, 255, 25);
 }
 QPushButton:pressed {
-    background-color: #252525;
+    background-color: #0a0b0e;
 }
 QPushButton:disabled {
-    background-color: #262626;
-    color: #555555;
-    border: 1px solid #303030;
+    color: rgba(255, 255, 255, 60);
+    border: 1px solid rgba(255, 255, 255, 10);
 }
 
-QPushButton#ExportButton {
-    background-color: #0078d4;
-    border: 1px solid #0078d4;
-    color: #ffffff;
+QPushButton#SecondaryButton {
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 8px;
+    padding: 7px 12px;
+    color: rgba(255, 255, 255, 235);
+    font-size: 11px;
+    font-style: normal;
     font-weight: 600;
-    padding: 8px 16px;
+}
+QPushButton#SecondaryButton:hover {
+    background-color: #26282c;
+    border: 1px solid rgba(255, 255, 255, 25);
+}
+
+/* Export — the only accent surface in the app. The drop-shadow glow is
+ * applied via QGraphicsDropShadowEffect in C++ because QSS has no box
+ * shadow. */
+QPushButton#ExportButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #8ed975, stop:1 #7CC95F);
+    border: 1px solid #6cb84f;
+    border-radius: 10px;
+    color: #0a1410;
+    font-size: 13px;
+    font-style: normal;
+    font-weight: 700;
+    padding: 9px 16px;
     min-height: 28px;
 }
 QPushButton#ExportButton:hover {
-    background-color: #1486dc;
-    border: 1px solid #1486dc;
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #99e07e, stop:1 #84cf66);
+    border: 1px solid #75c057;
+}
+QPushButton#ExportButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                stop:0 #7CC95F, stop:1 #6cb84f);
 }
 QPushButton#ExportButton:disabled {
-    background-color: #2a2a2a;
-    border: 1px solid #333333;
-    color: #555555;
+    background: #0a0b0e;
+    border: 1px solid rgba(255, 255, 255, 15);
+    color: rgba(255, 255, 255, 60);
 }
 
+/* Clear (×) button per slot — tiny circular dim glyph. */
 QToolButton#ClearButton {
     background: transparent;
-    border: 1px solid transparent;
-    color: #909090;
-    font-size: 16px;
-    font-weight: 700;
+    border: none;
+    color: rgba(255, 255, 255, 140);
+    font-size: 14px;
+    font-style: normal;
+    font-weight: 600;
     padding: 0;
-    min-width: 22px;
-    max-width: 22px;
-    min-height: 22px;
-    max-height: 22px;
-    border-radius: 11px;
+    min-width: 18px;
+    max-width: 18px;
+    min-height: 18px;
+    max-height: 18px;
+    border-radius: 9px;
 }
 QToolButton#ClearButton:hover {
-    background-color: #4a2222;
+    background-color: rgba(255, 255, 255, 20);
     color: #ffffff;
-    border: 1px solid #4a2222;
 }
 QToolButton#ClearButton:disabled {
-    color: #444444;
+    color: rgba(255, 255, 255, 30);
 }
 
+/* -----------------------------------------------------------------------
+ * Splitter
+ * -------------------------------------------------------------------- */
 QSplitter::handle {
-    background: #1a1a1a;
+    background: transparent;
 }
 QSplitter::handle:horizontal {
-    width: 1px;
-}
-
-QToolTip {
-    background-color: #252525;
-    color: #e6e6e6;
-    border: 1px solid #404040;
-    padding: 4px 6px;
-}
-
-QScrollBar:vertical {
-    background: #1e1e1e;
     width: 12px;
-    margin: 0;
+}
+
+/* -----------------------------------------------------------------------
+ * Preview surface frame
+ * -------------------------------------------------------------------- */
+QFrame#PreviewSurface {
+    background-color: #0a0b0e;
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 10px;
+}
+
+QFrame#ChannelBadge {
+    background-color: rgba(0, 0, 0, 160);
+    border: 1px solid rgba(255, 255, 255, 15);
+    border-radius: 999px;
+}
+QLabel#ChannelBadgeText {
+    color: rgba(255, 255, 255, 235);
+    font-family: "JetBrains Mono", "Consolas", "Courier New", monospace;
+    font-size: 10px;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    background: transparent;
+}
+
+/* -----------------------------------------------------------------------
+ * Scroll bars
+ * -------------------------------------------------------------------- */
+QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 4px 2px;
 }
 QScrollBar::handle:vertical {
-    background: #404040;
+    background: rgba(255, 255, 255, 30);
     min-height: 24px;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 QScrollBar::handle:vertical:hover {
-    background: #505050;
+    background: rgba(255, 255, 255, 50);
 }
 QScrollBar::add-line:vertical,
 QScrollBar::sub-line:vertical {
+    height: 0;
+    width: 0;
+}
+QScrollBar:horizontal {
+    background: transparent;
+    height: 10px;
+    margin: 2px 4px;
+}
+QScrollBar::handle:horizontal {
+    background: rgba(255, 255, 255, 30);
+    min-width: 24px;
+    border-radius: 4px;
+}
+QScrollBar::handle:horizontal:hover {
+    background: rgba(255, 255, 255, 50);
+}
+QScrollBar::add-line:horizontal,
+QScrollBar::sub-line:horizontal {
+    width: 0;
     height: 0;
 }

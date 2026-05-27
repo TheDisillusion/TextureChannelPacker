@@ -2,15 +2,15 @@
 
 #include <QFrame>
 
-class QButtonGroup;
 class QCheckBox;
 class QLabel;
-class QToolButton;
 
 namespace tcp::app {
 
+class ChannelChip;
 class JobController;
 class PreviewWidget;
+class SegmentedControl;
 enum class PreviewViewMode : int;
 
 class PreviewPanel : public QFrame
@@ -20,16 +20,28 @@ class PreviewPanel : public QFrame
 public:
     explicit PreviewPanel(JobController* controller, QWidget* parent = nullptr);
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void build_ui_();
+    void update_caption_();
+    void apply_view_(PreviewViewMode mode);
+    void position_badge_();
 
     JobController* controller_ = nullptr;
     PreviewWidget* preview_ = nullptr;
-    QButtonGroup* view_mode_group_ = nullptr;
-    QToolButton* fit_button_ = nullptr;
-    QToolButton* one_to_one_button_ = nullptr;
-    QCheckBox* checkerboard_check_ = nullptr;
-    QLabel* zoom_label_ = nullptr;
+    QFrame* surface_ = nullptr;
+    SegmentedControl* view_segment_ = nullptr;
+    SegmentedControl* zoom_segment_ = nullptr;
+    QCheckBox* checker_check_ = nullptr;
+
+    QFrame* channel_badge_ = nullptr;
+    ChannelChip* channel_badge_dot_ = nullptr;
+    QLabel* channel_badge_label_ = nullptr;
+
+    QLabel* size_caption_ = nullptr;
+    QLabel* view_caption_ = nullptr;
 };
 
 } // namespace tcp::app
